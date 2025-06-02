@@ -61,13 +61,6 @@ private:
                                                     const FabrikJoint& joint,
                                                     double segment_length);
     
-    // Apply spherical constraint (120° cone)
-    static Vector3 apply_spherical_constraint(const Vector3& unconstrained_position,
-                                            const Vector3& cone_apex,
-                                            const Vector3& cone_axis,
-                                            double cone_angle,
-                                            double distance_from_apex);
-    
     // Move joint to maintain segment length while going toward target
     static Vector3 move_joint_toward_target(const Vector3& current_joint,
                                           const Vector3& target_joint,

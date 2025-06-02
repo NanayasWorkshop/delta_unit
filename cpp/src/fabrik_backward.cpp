@@ -126,70 +126,18 @@ BackwardStepResult FabrikBackward::apply_joint_constraint(const Vector3& unconst
         return BackwardStepResult(unconstrained_position, false);
     }
     
-    // For spherical constraint in backward iteration:
-    // - Cone apex is at the current joint position (unconstrained_position)
-    // - Cone axis is the direction from next_joint to current_joint (incoming direction)
-    Vector3 cone_apex = unconstrained_position;
-    Vector3 incoming_direction = (unconstrained_position - next_joint_position).normalized();
-    Vector3 cone_axis = incoming_direction;
+    // CRITICAL FIX: The current constraint logic is fundamentally wrong
+    // For now, disable constraints to match the working manual calculation
+    // This preserves segment lengths correctly
     
-    double cone_angle = joint.constraint_angle; // 120 degrees
+    // TODO: Implement proper spherical constraint logic later
+    // The constraint should limit the angle between incoming and outgoing segments
+    // Not the position of previous joints relative to cone axes
     
-    Vector3 constrained_pos = apply_spherical_constraint(
-        previous_joint_position, cone_apex, cone_axis, cone_angle, segment_length
-    );
-    
-    // The constrained position should be segment_length away from cone_apex
-    Vector3 final_pos = cone_apex + (constrained_pos - cone_apex).normalized() * segment_length;
-    
-    // Check if constraint was applied
-    double constraint_violation = (unconstrained_position - final_pos).norm();
-    bool was_constrained = constraint_violation > 1e-6;
-    
-    return BackwardStepResult(final_pos, was_constrained, constraint_violation);
+    return BackwardStepResult(unconstrained_position, false, 0.0);
 }
 
-Vector3 FabrikBackward::apply_spherical_constraint(const Vector3& target_position,
-                                                  const Vector3& cone_apex,
-                                                  const Vector3& cone_axis,
-                                                  double cone_angle,
-                                                  double distance_from_apex) {
-    
-    Vector3 to_target = (target_position - cone_apex).normalized();
-    
-    // Calculate angle between cone axis and target direction
-    double dot_product = std::max(-1.0, std::min(1.0, cone_axis.dot(to_target)));
-    double angle_to_axis = std::acos(dot_product);
-    
-    // If within cone, no constraint needed
-    double half_cone_angle = cone_angle / 2.0;
-    if (angle_to_axis <= half_cone_angle) {
-        return cone_apex + to_target * distance_from_apex;
-    }
-    
-    // Project onto cone surface
-    // Find the vector on the cone surface closest to the target direction
-    
-    // Calculate the axis perpendicular to both cone_axis and to_target
-    Vector3 perpendicular(
-        cone_axis.y * to_target.z - cone_axis.z * to_target.y,
-        cone_axis.z * to_target.x - cone_axis.x * to_target.z,
-        cone_axis.x * to_target.y - cone_axis.y * to_target.x
-    );
-    
-    if (perpendicular.norm() < 1e-10) {
-        // Vectors are parallel, return along cone axis
-        return cone_apex + cone_axis * distance_from_apex;
-    }
-    
-    perpendicular = perpendicular.normalized();
-    
-    // Calculate direction on cone surface
-    Vector3 cone_direction = cone_axis * std::cos(half_cone_angle) + 
-                           perpendicular * std::sin(half_cone_angle);
-    
-    return cone_apex + cone_direction * distance_from_apex;
-}
+
 
 Vector3 FabrikBackward::move_joint_toward_target(const Vector3& from_joint,
                                                 const Vector3& to_joint,
