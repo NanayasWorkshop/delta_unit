@@ -46,6 +46,22 @@ ext_modules = [
         language='c++',
         cxx_std=17,
     ),
+    # FABRIK Initialization module
+    Pybind11Extension(
+        "delta_robot.fabrik_initialization",
+        ["cpp/src/fabrik_initialization_bindings.cpp", "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
+        include_dirs=["cpp/include", pybind11.get_include()],
+        language='c++',
+        cxx_std=17,
+    ),
+    # FABRIK Backward module - NEW
+    Pybind11Extension(
+        "delta_robot.fabrik_backward",
+        ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
+        include_dirs=["cpp/include", pybind11.get_include()],
+        language='c++',
+        cxx_std=17,
+    ),
 ]
 
 setup(
