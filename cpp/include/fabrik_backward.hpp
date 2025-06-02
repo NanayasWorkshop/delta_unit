@@ -22,16 +22,6 @@ struct FabrikBackwardResult {
         , distance_to_base(dist_to_base), iterations_used(iterations) {}
 };
 
-// Single iteration step result
-struct BackwardStepResult {
-    Vector3 new_joint_position;           // New position after constraint application
-    bool constraint_applied;              // Whether constraint was applied
-    double constraint_violation;          // Amount of constraint violation (0 = no violation)
-    
-    BackwardStepResult(const Vector3& pos, bool applied, double violation = 0.0)
-        : new_joint_position(pos), constraint_applied(applied), constraint_violation(violation) {}
-};
-
 class FabrikBackward {
 public:
     // Main interface: perform backward iteration from target to base
@@ -40,8 +30,8 @@ public:
                                                  double tolerance = FABRIK_TOLERANCE,
                                                  int max_iterations = FABRIK_MAX_ITERATIONS);
     
-    // Single backward iteration step
-    static FabrikChain single_backward_iteration(const FabrikChain& chain,
+    // Single backward iteration step with cone constraint algorithm
+    static FabrikChain single_backward_iteration(const FabrikChain& chain_state_before_pass,
                                                 const Vector3& target_position);
     
     // Check if target is reachable
@@ -54,18 +44,6 @@ public:
     static Vector3 get_end_effector_position(const FabrikChain& chain);
     
 private:
-    // Apply constraints to a joint during backward iteration
-    static BackwardStepResult apply_joint_constraint(const Vector3& unconstrained_position,
-                                                    const Vector3& previous_joint_position,
-                                                    const Vector3& next_joint_position,
-                                                    const FabrikJoint& joint,
-                                                    double segment_length);
-    
-    // Move joint to maintain segment length while going toward target
-    static Vector3 move_joint_toward_target(const Vector3& current_joint,
-                                          const Vector3& target_joint,
-                                          double required_distance);
-    
     // Check convergence criteria
     static bool has_converged(const Vector3& current_end_effector,
                             const Vector3& target_position,

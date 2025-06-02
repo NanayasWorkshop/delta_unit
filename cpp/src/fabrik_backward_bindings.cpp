@@ -9,20 +9,6 @@ PYBIND11_MODULE(fabrik_backward, m) {
     
     // NO Vector3/FabrikChain registration - assumes delta_types and fabrik_initialization are imported
     
-    // BackwardStepResult structure
-    pybind11::class_<delta::BackwardStepResult>(m, "BackwardStepResult")
-        .def_readonly("new_joint_position", &delta::BackwardStepResult::new_joint_position)
-        .def_readonly("constraint_applied", &delta::BackwardStepResult::constraint_applied)
-        .def_readonly("constraint_violation", &delta::BackwardStepResult::constraint_violation)
-        .def("__repr__", [](const delta::BackwardStepResult& r) {
-            return "BackwardStepResult(pos=(" + 
-                   std::to_string(r.new_joint_position.x) + "," +
-                   std::to_string(r.new_joint_position.y) + "," + 
-                   std::to_string(r.new_joint_position.z) + 
-                   "), constrained=" + (r.constraint_applied ? "True" : "False") +
-                   ", violation=" + std::to_string(r.constraint_violation) + ")";
-        });
-    
     // FabrikBackwardResult structure
     pybind11::class_<delta::FabrikBackwardResult>(m, "FabrikBackwardResult")
         .def_readonly("updated_chain", &delta::FabrikBackwardResult::updated_chain)

@@ -20,6 +20,7 @@ constexpr double SPHERICAL_JOINT_CONE_ANGLE_DEG = 120.0;               // 120 de
 // FABRIK Solver Constants
 constexpr double FABRIK_TOLERANCE = 0.01;                              // Convergence tolerance
 constexpr int FABRIK_MAX_ITERATIONS = 100;                             // Maximum solver iterations
+constexpr double EPSILON_MATH = 1e-9;                                  // Mathematical epsilon for floating point comparisons
 
 // Geometry Constants - Base actuator positions (angles in radians)
 constexpr double BASE_A_ANGLE = M_PI / 2.0;                // 90 degrees (top)
