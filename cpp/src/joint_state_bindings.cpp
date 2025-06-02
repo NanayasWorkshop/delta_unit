@@ -7,6 +7,8 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(joint_state_module, m) {
     m.doc() = "Delta robot joint state calculation module";
     
+    // Do NOT register Vector3 here - assume it's imported from fermat_module
+    
     // JointStateResult - output structure
     pybind11::class_<delta::JointStateResult>(m, "JointStateResult")
         .def_readonly("prismatic_joint", &delta::JointStateResult::prismatic_joint)

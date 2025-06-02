@@ -6,7 +6,7 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(kinematics_module, m) {
     m.doc() = "Delta robot kinematics calculation module";
     
-    // Vector3 (reused from math_utils) - needed for standalone module
+    // Vector3 - primary registration
     pybind11::class_<delta::Vector3>(m, "Vector3")
         .def(pybind11::init<double, double, double>(), "x"_a = 0, "y"_a = 0, "z"_a = 0)
         .def_readwrite("x", &delta::Vector3::x)
