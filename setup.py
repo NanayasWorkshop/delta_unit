@@ -63,7 +63,7 @@ ext_modules = [
         language='c++',
         cxx_std=17,
     ),
-    # FABRIK Forward module - FIXED: Include ALL required object files
+    # FABRIK Forward module
     Pybind11Extension(
         "delta_robot.fabrik_forward",
         [
@@ -82,10 +82,30 @@ ext_modules = [
         include_dirs=["cpp/include", pybind11.get_include()],
         language='c++',
         cxx_std=17,
-        # Add extra compile args for debugging if needed
         extra_compile_args=['-O2'],
-        # Ensure proper linking
-        extra_link_args=[],
+    ),
+    # FABRIK Solver module - Complete FABRIK algorithm
+    Pybind11Extension(
+        "delta_robot.fabrik_solver",
+        [
+            # Primary sources
+            "cpp/src/fabrik_solver_bindings.cpp", 
+            "cpp/src/fabrik_solver.cpp",
+            # FABRIK algorithm dependencies
+            "cpp/src/fabrik_backward.cpp",
+            "cpp/src/fabrik_forward.cpp",
+            "cpp/src/fabrik_initialization.cpp",
+            # Kinematics chain (required by fabrik_forward.cpp)
+            "cpp/src/kinematics_module.cpp",
+            "cpp/src/fermat_module.cpp", 
+            "cpp/src/joint_state.cpp",
+            # Base math utilities
+            "cpp/src/math_utils.cpp"
+        ],
+        include_dirs=["cpp/include", pybind11.get_include()],
+        language='c++',
+        cxx_std=17,
+        extra_compile_args=['-O2'],
     ),
 ]
 
