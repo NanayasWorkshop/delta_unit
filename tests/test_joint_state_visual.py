@@ -105,14 +105,16 @@ def visualize_joint_state(direction_x, direction_y, direction_z):
     """Create 3D visualization of joint state calculation"""
     
     try:
-        import fermat_module as fm
-        import joint_state_module as jsm
+        # FIXED: Use proper delta_robot package import
+        import delta_robot
+        fm = delta_robot.fermat
+        jsm = delta_robot.joint_state
     except ImportError as e:
-        print(f"Error: Module not found: {e}")
+        print(f"Error: delta_robot package not found: {e}")
         return False
     
     # Calculate results
-    direction_vector = fm.Vector3(direction_x, direction_y, direction_z)
+    direction_vector = delta_robot.Vector3(direction_x, direction_y, direction_z)
     fermat_result = fm.FermatModule.calculate(direction_x, direction_y, direction_z)
     joint_result = jsm.JointStateModule.calculate_from_fermat(direction_vector, fermat_result)
     
@@ -127,7 +129,7 @@ def visualize_joint_state(direction_x, direction_y, direction_z):
     ax1.scatter([0], [0], [0], color='black', s=200, marker='s', label='Base Center')
     
     # Joint H (working height)
-    working_height = 11.5  # WORKING_HEIGHT
+    working_height = delta_robot.WORKING_HEIGHT
     ax1.scatter([0], [0], [working_height], color='purple', s=150, marker='o', label=f'Joint H (z={working_height})')
     
     # Fermat point
