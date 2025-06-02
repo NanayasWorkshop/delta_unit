@@ -369,7 +369,7 @@ def main():
         input_x, input_y, input_z = parse_coordinates(sys.argv[1])
         print(f"Using command line input: ({input_x}, {input_y}, {input_z})")
     else:
-        input_x, input_y, input_z = 5, 4, 7
+        input_x, input_y, input_z = 0.612, 0.612, 0.5
         print("Using default input: (5, 4, 7)")
         print("Usage: python3 test_kinematics_visual.py x,y,z")
     

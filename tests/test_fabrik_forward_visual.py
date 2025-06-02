@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple visual test for FABRIK Forward - Single large 3D view with debug info
+Enhanced visual test for FABRIK Forward - Shows roll/pitch angles and target vectors
 """
 
 import sys
@@ -24,6 +24,26 @@ def parse_coordinates(coord_str):
         print(f"Error parsing coordinates '{coord_str}': {e}")
         print("Expected format: x,y,z (e.g., 100,50,200)")
         sys.exit(1)
+
+def vector_to_spherical(vector):
+    """Convert a 3D vector to spherical coordinates (roll, pitch, magnitude)"""
+    x, y, z = vector.x, vector.y, vector.z
+    
+    # Magnitude
+    magnitude = math.sqrt(x*x + y*y + z*z)
+    
+    if magnitude < 1e-9:
+        return 0.0, 0.0, 0.0
+    
+    # Pitch (elevation angle from XY plane) - range [-90, 90] degrees
+    pitch_rad = math.asin(z / magnitude)
+    pitch_deg = math.degrees(pitch_rad)
+    
+    # Roll (azimuth angle in XY plane from X axis) - range [-180, 180] degrees
+    roll_rad = math.atan2(y, x)
+    roll_deg = math.degrees(roll_rad)
+    
+    return roll_deg, pitch_deg, magnitude
 
 def plot_chain(ax, chain, color='blue', alpha=1.0, linewidth=2, label='Chain'):
     """Plot a robot chain in 3D"""
@@ -88,18 +108,19 @@ def calculate_chain_debug_info(chain, name, original_lengths=None, new_lengths=N
     
     return joints_info, segments_info, actual_lengths
 
-def extract_real_fabrik_calculations(backward_chain):
-    """Extract the actual calculations from FABRIK forward process"""
+def extract_enhanced_fabrik_calculations(backward_chain, target_position):
+    """Extract enhanced calculations with roll/pitch and target vectors"""
     
     try:
         import delta_robot.fabrik_forward as ff
         import delta_robot.fermat_module as fermat
         import delta_robot.delta_types as dt
     except ImportError:
-        return [], [], [], []
+        return [], [], [], [], [], [], []
     
     # Step 1: Extract direction pairs (same as in fabrik_forward.cpp)
     direction_pairs = []
+    target_vectors = []  # Store the actual target vectors used
     num_segments = backward_chain.num_robot_segments
     
     for seg in range(num_segments):
@@ -133,28 +154,50 @@ def extract_real_fabrik_calculations(backward_chain):
         ).normalized()
         
         direction_pairs.append((ref_dir, target_dir, seg))
+        target_vectors.append(target_dir)
     
-    # Step 2: Calculate segment properties (same as C++)
+    # Step 2: Calculate segment properties with enhanced info
     transformed_directions = []
     prismatic_lengths = []
     h_to_g_distances = []
+    roll_angles = []
+    pitch_angles = []
+    fermat_points = []
     
-    for ref_dir, target_dir, seg_idx in direction_pairs:
+    for i, (ref_dir, target_dir, seg_idx) in enumerate(direction_pairs):
         # Transform target direction to Z+ reference coordinate system
-        # This is the actual transformation used in fabrik_forward.cpp
         transformed_dir = transform_to_z_reference(ref_dir, target_dir)
         transformed_directions.append(transformed_dir)
         
-        # Calculate prismatic length using real Fermat module
-        fermat_result = fermat.FermatModule.calculate(transformed_dir)
-        prismatic_length = 2.0 * fermat_result.fermat_point.z
+        # Calculate roll and pitch of the transformed direction
+        roll, pitch, magnitude = vector_to_spherical(transformed_dir)
+        roll_angles.append(roll)
+        pitch_angles.append(pitch)
+        
+        # Calculate prismatic length using KinematicsModule (which handles half-angle correctly!)
+        kinematics_result = None
+        try:
+            import delta_robot.kinematics_module as kinematics
+            kinematics_result = kinematics.KinematicsModule.calculate(transformed_dir)
+            prismatic_length = kinematics_result.prismatic_joint_length
+        except ImportError:
+            # Fallback to manual calculation if kinematics module not available
+            fermat_result = fermat.FermatModule.calculate(transformed_dir)
+            prismatic_length = 2.0 * fermat_result.fermat_point.z
+        
         prismatic_lengths.append(prismatic_length)
         
-        # Calculate H→G distance (same as utils function)
+        # Store the exact vector that was passed to the solver
+        print(f"DEBUG: Segment {i} - Solver input: ({transformed_dir.x:.6f}, {transformed_dir.y:.6f}, {transformed_dir.z:.6f}) → Prismatic: {prismatic_length:.6f}")
+        if kinematics_result:
+            print(f"       Half-angle vector: ({kinematics_result.transformed_vector.x:.6f}, {kinematics_result.transformed_vector.y:.6f}, {kinematics_result.transformed_vector.z:.6f})")
+        
+        # Calculate H→G distance
         h_to_g_distance = 101.0 + 2.0 * 11.0 + prismatic_length  # MIN_HEIGHT + 2*MOTOR_LIMIT + prismatic
         h_to_g_distances.append(h_to_g_distance)
     
-    return direction_pairs, transformed_directions, prismatic_lengths, h_to_g_distances
+    return (direction_pairs, target_vectors, transformed_directions, 
+            prismatic_lengths, h_to_g_distances, roll_angles, pitch_angles)
 
 def transform_to_z_reference(reference_direction, target_direction):
     """Transform direction to Z+ reference (simplified version of C++ implementation)"""
@@ -201,8 +244,8 @@ def transform_to_z_reference(reference_direction, target_direction):
     
     return dt.Vector3(rotated[0], rotated[1], rotated[2])
 
-def visualize_fabrik_simple(target_x, target_y, target_z):
-    """Create single large 3D visualization with debug textbox"""
+def visualize_fabrik_enhanced(target_x, target_y, target_z):
+    """Create enhanced visualization with roll/pitch/target vector info"""
     
     try:
         import delta_robot.fabrik_initialization as fi
@@ -221,6 +264,9 @@ def visualize_fabrik_simple(target_x, target_y, target_z):
     # Create target position
     target_position = dt.Vector3(target_x, target_y, target_z)
     
+    # Calculate target vector properties
+    target_roll, target_pitch, target_magnitude = vector_to_spherical(target_position)
+    
     # Perform backward iteration
     backward_result = fb.FabrikBackward.iterate_to_target(initial_chain, target_position)
     backward_chain = backward_result.updated_chain
@@ -232,13 +278,14 @@ def visualize_fabrik_simple(target_x, target_y, target_z):
     forward_result = ff.FabrikForward.iterate_from_base(backward_chain)
     forward_chain = forward_result.updated_chain
     
-    # Extract real FABRIK calculations
-    direction_pairs, transformed_directions, prismatic_lengths, h_to_g_distances = extract_real_fabrik_calculations(backward_chain)
+    # Extract enhanced FABRIK calculations
+    (direction_pairs, target_vectors, transformed_directions, 
+     prismatic_lengths, h_to_g_distances, roll_angles, pitch_angles) = extract_enhanced_fabrik_calculations(backward_chain, target_position)
     
     # Setup figure with large 3D view and text area
-    fig = plt.figure(figsize=(18, 10))
+    fig = plt.figure(figsize=(20, 12))
     
-    # Large 3D plot (left 70% of screen)
+    # Large 3D plot (left 65% of screen)
     ax = fig.add_subplot(121, projection='3d')
     
     # Plot all three phases
@@ -253,7 +300,10 @@ def visualize_fabrik_simple(target_x, target_y, target_z):
     ax.scatter([target_x], [target_y], [target_z], color='gold', s=300, 
                marker='X', label='Target', edgecolor='black', linewidth=2)
     
-    # Remove trajectory plotting
+    # Plot target vector from origin
+    ax.quiver(0, 0, 0, target_x, target_y, target_z, 
+              color='gold', alpha=0.7, arrow_length_ratio=0.05, linewidth=3, 
+              label='Target Vector')
     
     # Set axis properties
     max_range = max(abs(target_x), abs(target_y), abs(target_z), init_result.total_reach) * 1.1
@@ -263,15 +313,10 @@ def visualize_fabrik_simple(target_x, target_y, target_z):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title('FABRIK Complete Cycle: Initial → Backward → Forward', fontsize=14, weight='bold')
+    ax.set_title('FABRIK Complete Cycle with Target Vector Analysis', fontsize=14, weight='bold')
     ax.legend(loc='upper left')
     
     # Calculate debug information
-    initial_joints, initial_segments, _ = calculate_chain_debug_info(initial_chain, "Initial", original_lengths)
-    backward_joints, backward_segments, _ = calculate_chain_debug_info(backward_chain, "Backward", original_lengths)
-    forward_joints, forward_segments, _ = calculate_chain_debug_info(forward_chain, "Forward", new_lengths, new_lengths)
-    
-    # Calculate distances
     final_ee = forward_chain.joints[-1].position
     final_dist_to_target = math.sqrt(
         (final_ee.x - target_x)**2 + 
@@ -285,12 +330,16 @@ def visualize_fabrik_simple(target_x, target_y, target_z):
         forward_chain.joints[0].position.z**2
     )
     
-    # Create debug text (right 30% of screen)
+    # Create enhanced debug text (right 35% of screen)
     ax_text = fig.add_subplot(122)
     ax_text.axis('off')
     
-    debug_text = f"""TARGET: ({target_x}, {target_y}, {target_z})
-Distance from origin: {math.sqrt(target_x**2 + target_y**2 + target_z**2):.1f}
+    debug_text = f"""TARGET VECTOR ANALYSIS:
+Target Position: ({target_x}, {target_y}, {target_z})
+Target Magnitude: {target_magnitude:.1f}
+Target Roll (azimuth): {target_roll:.1f}°
+Target Pitch (elevation): {target_pitch:.1f}°
+Distance from origin: {target_magnitude:.1f}
 Max robot reach: {init_result.total_reach:.1f}
 
 BACKWARD ITERATION:
@@ -307,26 +356,31 @@ Original → Recalculated:"""
 
     debug_text += f"""
 
-REAL DIRECTION PAIRS & CALCULATIONS:"""
+ENHANCED DIRECTION & ANGLE ANALYSIS:"""
     for i, (ref_dir, target_dir, seg_idx) in enumerate(direction_pairs):
         debug_text += f"\n  Segment {i}:"
         debug_text += f"\n    Ref Dir:    ({ref_dir.x:.3f}, {ref_dir.y:.3f}, {ref_dir.z:.3f})"
+        
+        # Target direction angles
+        target_roll, target_pitch, target_mag = vector_to_spherical(target_dir)
         debug_text += f"\n    Target Dir: ({target_dir.x:.3f}, {target_dir.y:.3f}, {target_dir.z:.3f})"
+        debug_text += f"\n    Target Roll: {target_roll:.1f}°, Pitch: {target_pitch:.1f}°"
+        
         if i < len(transformed_directions):
             trans_dir = transformed_directions[i]
             debug_text += f"\n    Trans Dir:  ({trans_dir.x:.3f}, {trans_dir.y:.3f}, {trans_dir.z:.3f})"
+            debug_text += f"\n    Trans Roll: {roll_angles[i]:.1f}°, Pitch: {pitch_angles[i]:.1f}°"
 
     debug_text += f"""
 
-REAL CALCULATED PRISMATIC LENGTHS:"""
-    for i, pris in enumerate(prismatic_lengths):
-        debug_text += f"\n  Segment {i}: {pris:.3f}"
-
-    debug_text += f"""
-
-REAL CALCULATED H→G DISTANCES:"""
-    for i, hg in enumerate(h_to_g_distances):
-        debug_text += f"\n  Segment {i}: {hg:.3f}"
+KINEMATIC SOLVER INPUT & PRISMATIC RESULTS:"""
+    for i, (pris, roll, pitch) in enumerate(zip(prismatic_lengths, roll_angles, pitch_angles)):
+        trans_dir = transformed_directions[i]
+        debug_text += f"\n  Segment {i}:"
+        debug_text += f"\n    Solver Input Vector: ({trans_dir.x:.3f}, {trans_dir.y:.3f}, {trans_dir.z:.3f})"
+        debug_text += f"\n    Vector Roll: {roll:.1f}°, Pitch: {pitch:.1f}°"
+        debug_text += f"\n    → Prismatic Length: {pris:.3f}"
+        debug_text += f"\n    → H→G Distance: {h_to_g_distances[i]:.3f}"
 
     debug_text += f"""
 
@@ -338,31 +392,55 @@ Lengths preserved: {'YES' if forward_result.constraints_satisfied else 'NO'}
 FINAL RESULT:
 End-effector: ({final_ee.x:.1f}, {final_ee.y:.1f}, {final_ee.z:.1f})
 Distance to target: {final_dist_to_target:.2f}
-Accuracy: {((1 - final_dist_to_target/math.sqrt(target_x**2 + target_y**2 + target_z**2)) * 100):.1f}%
+Accuracy: {((1 - final_dist_to_target/target_magnitude) * 100):.1f}%
 
-FORWARD CHAIN JOINTS:"""
-    
-    for joint_info in forward_joints[:4]:  # Limit to avoid overflow
-        debug_text += f"\n{joint_info}"
-    
-    debug_text += f"""
+ANGULAR ACCURACY:
+Final EE Roll: {vector_to_spherical(final_ee)[0]:.1f}°
+Final EE Pitch: {vector_to_spherical(final_ee)[1]:.1f}°
+Target Roll: {target_roll:.1f}°
+Target Pitch: {target_pitch:.1f}°
+Roll Error: {abs(vector_to_spherical(final_ee)[0] - target_roll):.1f}°
+Pitch Error: {abs(vector_to_spherical(final_ee)[1] - target_pitch):.1f}°
 
-FORWARD CHAIN SEGMENTS:"""
+FINAL CHAIN SEGMENTS:"""
     
-    for seg_info in forward_segments:
-        debug_text += f"\n{seg_info}"
+    # Calculate final segment lengths for verification
+    for i, segment in enumerate(forward_chain.segments):
+        start_pos = forward_chain.joints[segment.start_joint_index].position
+        end_pos = forward_chain.joints[segment.end_joint_index].position
+        
+        actual_length = math.sqrt(
+            (end_pos.x - start_pos.x)**2 +
+            (end_pos.y - start_pos.y)**2 +
+            (end_pos.z - start_pos.z)**2
+        )
+        expected = new_lengths[i]
+        error = abs(actual_length - expected)
+        debug_text += f"\n  [{i}] Expected: {expected:.1f}, Actual: {actual_length:.1f}, Error: {error:.2f}"
     
     # Add debug text with scrollable box
-    ax_text.text(0.05, 0.95, debug_text, transform=ax_text.transAxes, fontsize=9,
+    ax_text.text(0.05, 0.95, debug_text, transform=ax_text.transAxes, fontsize=8,
                 verticalalignment='top', fontfamily='monospace',
-                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgray', alpha=0.8))
+                bbox=dict(boxstyle='round,pad=0.5', facecolor='lightgreen', alpha=0.8))
     
     plt.tight_layout()
     plt.show()
     
-    # Simple console output
+    # Enhanced console output
+    print(f"\n{'='*60}")
+    print(f"KINEMATIC SOLVER ANALYSIS")
+    print(f"{'='*60}")
     print(f"Target: ({target_x}, {target_y}, {target_z})")
-    print(f"Final distance to target: {final_dist_to_target:.2f}")
+    print(f"Target Roll: {target_roll:.1f}°, Pitch: {target_pitch:.1f}°")
+    print(f"\nKINEMATIC SOLVER INPUTS & OUTPUTS:")
+    for i, (trans_dir, pris, roll, pitch) in enumerate(zip(transformed_directions, prismatic_lengths, roll_angles, pitch_angles)):
+        print(f"  Segment {i}:")
+        print(f"    Input Vector: ({trans_dir.x:.6f}, {trans_dir.y:.6f}, {trans_dir.z:.6f})")
+        print(f"    Roll: {roll:.1f}°, Pitch: {pitch:.1f}°")
+        print(f"    → Prismatic Result: {pris:.6f}")
+    print(f"\nFinal distance to target: {final_dist_to_target:.2f}")
+    print(f"Final roll: {vector_to_spherical(final_ee)[0]:.1f}°, pitch: {vector_to_spherical(final_ee)[1]:.1f}°")
+    print(f"Angular errors - Roll: {abs(vector_to_spherical(final_ee)[0] - target_roll):.1f}°, Pitch: {abs(vector_to_spherical(final_ee)[1] - target_pitch):.1f}°")
     print(f"Base error: {base_error:.4f}")
     print(f"Total iterations: {backward_result.iterations_used + forward_result.iterations_used}")
     
@@ -373,10 +451,10 @@ def main():
         target_x, target_y, target_z = parse_coordinates(sys.argv[1])
     else:
         target_x, target_y, target_z = 100, 100, 300
-        print("Usage: python3 test_fabrik_forward_visual_simple.py x,y,z")
+        print("Usage: python3 test_fabrik_forward_visual_enhanced.py x,y,z")
     
-    print(f"Visualizing FABRIK cycle for target: ({target_x}, {target_y}, {target_z})")
-    visualize_fabrik_simple(target_x, target_y, target_z)
+    print(f"Enhanced FABRIK visualization for target: ({target_x}, {target_y}, {target_z})")
+    visualize_fabrik_enhanced(target_x, target_y, target_z)
 
 if __name__ == "__main__":
     main()

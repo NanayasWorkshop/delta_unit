@@ -6,8 +6,7 @@
 #include "math_utils.hpp"
 #include "constants.hpp"
 #include "fabrik_initialization.hpp"
-#include "fermat_module.hpp"
-#include "joint_state.hpp"
+#include "kinematics_module.hpp"
 
 namespace delta {
 
@@ -18,7 +17,7 @@ struct FabrikForwardResult {
     Vector3 final_end_effector;                 // Final end-effector position
     bool constraints_satisfied;                 // Whether all constraints were satisfied
     int iterations_used;                        // Number of iterations performed
-    std::vector<Vector3> iteration_history;     // History of end-effector positions per iteration
+    std::vector<Vector3> iteration_history;     // History of base positions per iteration
     std::vector<double> recalculated_lengths;   // New segment lengths after recalculation
     
     FabrikForwardResult(const FabrikChain& chain, const Vector3& base, const Vector3& end_eff,
@@ -56,8 +55,8 @@ public:
                                                 double tolerance = FABRIK_TOLERANCE,
                                                 int max_iterations = FABRIK_MAX_ITERATIONS);
     
-    // Single forward iteration step
-    static FabrikChain single_forward_iteration(const FabrikChain& chain,
+    // Single forward iteration step with cone constraint algorithm
+    static FabrikChain single_forward_iteration(const FabrikChain& chain_state_before_pass,
                                                const std::vector<double>& target_segment_lengths);
     
     // Calculate new segment lengths from backward iteration result
@@ -88,18 +87,6 @@ private:
     static std::vector<double> convert_to_fabrik_lengths(
         const std::vector<SegmentProperties>& segment_properties,
         int num_robot_segments);
-    
-    // Apply constraints during forward iteration
-    static Vector3 apply_forward_constraint(const Vector3& unconstrained_position,
-                                          const Vector3& previous_joint_position,
-                                          const Vector3& next_joint_position,
-                                          const FabrikJoint& joint,
-                                          double segment_length);
-    
-    // Move joint to maintain segment length during forward iteration
-    static Vector3 move_joint_from_base(const Vector3& from_joint,
-                                       const Vector3& to_joint,
-                                       double required_distance);
     
     // Check convergence criteria
     static bool has_converged_forward(const Vector3& current_base,
