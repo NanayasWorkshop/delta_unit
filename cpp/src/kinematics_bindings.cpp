@@ -6,33 +6,8 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(kinematics_module, m) {
     m.doc() = "Delta robot kinematics calculation module";
     
-    // Vector3 - primary registration
-    pybind11::class_<delta::Vector3>(m, "Vector3")
-        .def(pybind11::init<double, double, double>(), "x"_a = 0, "y"_a = 0, "z"_a = 0)
-        .def_readwrite("x", &delta::Vector3::x)
-        .def_readwrite("y", &delta::Vector3::y)
-        .def_readwrite("z", &delta::Vector3::z)
-        .def("__repr__", [](const delta::Vector3& v) {
-            return "Vector3(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
-        });
-    
-    // FermatResult (needed for reference data)
-    pybind11::class_<delta::FermatResult>(m, "FermatResult")
-        .def_readonly("z_A", &delta::FermatResult::z_A)
-        .def_readonly("z_B", &delta::FermatResult::z_B)
-        .def_readonly("z_C", &delta::FermatResult::z_C)
-        .def_readonly("fermat_point", &delta::FermatResult::fermat_point);
-    
-    // JointStateResult (needed for reference data)
-    pybind11::class_<delta::JointStateResult>(m, "JointStateResult")
-        .def_readonly("prismatic_joint", &delta::JointStateResult::prismatic_joint)
-        .def_readonly("roll_joint", &delta::JointStateResult::roll_joint)
-        .def_readonly("pitch_joint", &delta::JointStateResult::pitch_joint)
-        .def_readonly("direction_vector", &delta::JointStateResult::direction_vector)
-        .def_readonly("fermat_point", &delta::JointStateResult::fermat_point)
-        .def_readonly("z_A", &delta::JointStateResult::z_A)
-        .def_readonly("z_B", &delta::JointStateResult::z_B)
-        .def_readonly("z_C", &delta::JointStateResult::z_C);
+    // NO Vector3 registration - assumes delta_types is imported
+    // NO FermatResult/JointStateResult registration - assumes those modules are imported
     
     // KinematicsResult - main output structure
     pybind11::class_<delta::KinematicsResult>(m, "KinematicsResult")

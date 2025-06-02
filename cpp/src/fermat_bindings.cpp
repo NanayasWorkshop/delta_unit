@@ -6,15 +6,7 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(fermat_module, m) {
     m.doc() = "Delta robot Fermat calculation module";
     
-    // Vector3 (reused from math_utils)
-    pybind11::class_<delta::Vector3>(m, "Vector3")
-        .def(pybind11::init<double, double, double>(), "x"_a = 0, "y"_a = 0, "z"_a = 0)
-        .def_readwrite("x", &delta::Vector3::x)
-        .def_readwrite("y", &delta::Vector3::y)
-        .def_readwrite("z", &delta::Vector3::z)
-        .def("__repr__", [](const delta::Vector3& v) {
-            return "Vector3(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
-        });
+    // NO Vector3 registration - assumes delta_types is imported
     
     // FermatResult - clean output structure
     pybind11::class_<delta::FermatResult>(m, "FermatResult")
