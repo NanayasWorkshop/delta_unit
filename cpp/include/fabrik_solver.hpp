@@ -9,6 +9,21 @@
 
 namespace delta {
 
+// Data for each physical segment's end-effector
+struct SegmentEndEffectorData {
+    int segment_number;                    // Which physical segment (1, 2, 3, etc.)
+    Vector3 end_effector_position;         // 3D position of this segment's end-effector
+    Vector3 direction_from_base;           // Direction vector from world origin to this end-effector
+    double prismatic_length;               // This segment's prismatic length
+    double h_to_g_distance;                // This segment's H→G distance
+    double fabrik_distance_from_base;      // Distance along FABRIK chain from base to this end-effector
+    
+    SegmentEndEffectorData(int seg_num, const Vector3& pos, const Vector3& dir, 
+                          double prismatic, double h_to_g, double fabrik_dist)
+        : segment_number(seg_num), end_effector_position(pos), direction_from_base(dir)
+        , prismatic_length(prismatic), h_to_g_distance(h_to_g), fabrik_distance_from_base(fabrik_dist) {}
+};
+
 // Overall FABRIK solution result
 struct FabrikSolutionResult {
     FabrikChain final_chain;                    // Final solved chain
@@ -21,6 +36,7 @@ struct FabrikSolutionResult {
     int forward_iterations;                     // Number of forward iterations
     std::vector<Vector3> convergence_history;   // End-effector position each iteration
     double solve_time_ms;                       // Time taken to solve
+    std::vector<SegmentEndEffectorData> segment_end_effectors;  // NEW! Physical segment end-effectors
     
     FabrikSolutionResult(const FabrikChain& chain, const Vector3& target, const Vector3& achieved,
                         bool conv, double error, int total_iter)
@@ -84,6 +100,9 @@ private:
     
     // Segment length management - CRITICAL for preventing oscillation
     static void update_segment_lengths(FabrikChain& chain, const std::vector<double>& new_lengths);
+    
+    // NEW! Extract segment end-effector positions from solved chain
+    static std::vector<SegmentEndEffectorData> extract_segment_end_effectors(const FabrikChain& solved_chain);
     
     // Convergence checking
     static bool has_converged(const Vector3& end_effector, const Vector3& target, double tolerance);

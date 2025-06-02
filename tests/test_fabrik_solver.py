@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test the complete FABRIK Solver module
+Test the complete FABRIK Solver module with segment end-effector output
 """
 
 import sys
@@ -37,6 +37,7 @@ def print_solution_summary(result, test_name="FABRIK Solution"):
     print(f"  - Backward: {result.backward_iterations}")
     print(f"  - Forward: {result.forward_iterations}")
     print(f"Solve time: {result.solve_time_ms:.2f} ms")
+    print(f"Segment end-effectors found: {len(result.segment_end_effectors)}")
     
     if result.final_error <= 0.01:
         print("✓ EXCELLENT accuracy achieved!")
@@ -46,6 +47,69 @@ def print_solution_summary(result, test_name="FABRIK Solution"):
         print("⚠️  Moderate accuracy")
     else:
         print("✗ Poor accuracy")
+
+def print_segment_end_effectors(result):
+    """Print detailed segment end-effector information"""
+    if not result.segment_end_effectors:
+        print("No segment end-effector data available")
+        return
+    
+    print(f"\n=== SEGMENT END-EFFECTOR POSITIONS ===")
+    print("Physical segment end-effector positions for stacked kinematics:")
+    print("-" * 80)
+    
+    for i, seg_data in enumerate(result.segment_end_effectors):
+        pos = seg_data.end_effector_position
+        dir_vec = seg_data.direction_from_base
+        
+        print(f"SEGMENT {seg_data.segment_number}:")
+        print(f"  End-effector position: ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})")
+        print(f"  Direction from base:   ({dir_vec.x:.6f}, {dir_vec.y:.6f}, {dir_vec.z:.6f})")
+        print(f"  Prismatic length:      {seg_data.prismatic_length:.3f}")
+        print(f"  H→G distance:          {seg_data.h_to_g_distance:.3f}")
+        print(f"  FABRIK distance:       {seg_data.fabrik_distance_from_base:.3f}")
+        
+        # Calculate some useful properties
+        distance_from_origin = math.sqrt(pos.x**2 + pos.y**2 + pos.z**2)
+        print(f"  Distance from origin:  {distance_from_origin:.3f}")
+        
+        # Verify direction vector magnitude
+        dir_magnitude = math.sqrt(dir_vec.x**2 + dir_vec.y**2 + dir_vec.z**2)
+        print(f"  Direction magnitude:   {dir_magnitude:.6f} {'✓' if abs(dir_magnitude - 1.0) < 0.001 else '✗'}")
+        print()
+
+def print_stacked_kinematics_plan(result):
+    """Print the plan for stacked kinematics calculations"""
+    if not result.segment_end_effectors:
+        return
+    
+    print(f"\n=== STACKED KINEMATICS CALCULATION PLAN ===")
+    print("Steps to calculate individual segment joint values:")
+    print("-" * 60)
+    
+    for i, seg_data in enumerate(result.segment_end_effectors):
+        pos = seg_data.end_effector_position
+        
+        if i == 0:
+            # First segment: calculate from world origin
+            print(f"STEP {i+1}: Calculate Segment {seg_data.segment_number} joint values")
+            print(f"  Input direction: ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f}) from world origin (0,0,0)")
+            print(f"  Run: Fermat + JointState + Orientation modules")
+            print(f"  Output: Prismatic={seg_data.prismatic_length:.3f}, A/B/C Z-values, Roll/Pitch")
+            print()
+        else:
+            # Subsequent segments: transform coordinate system
+            prev_pos = result.segment_end_effectors[i-1].end_effector_position
+            relative_dir = (pos.x - prev_pos.x, pos.y - prev_pos.y, pos.z - prev_pos.z)
+            
+            print(f"STEP {i+1}: Calculate Segment {seg_data.segment_number} joint values")
+            print(f"  Transform: Move Segment {i} end-effector to world origin (0,0,0)")
+            print(f"  Previous end-effector: ({prev_pos.x:.3f}, {prev_pos.y:.3f}, {prev_pos.z:.3f})")
+            print(f"  Current end-effector:  ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})")
+            print(f"  Relative direction:    ({relative_dir[0]:.3f}, {relative_dir[1]:.3f}, {relative_dir[2]:.3f})")
+            print(f"  Run: Coordinate transform + Fermat + JointState + Orientation")
+            print(f"  Output: Prismatic={seg_data.prismatic_length:.3f}, A/B/C Z-values, Roll/Pitch")
+            print()
 
 def print_convergence_history(result, max_show=10):
     """Print convergence history if available"""
@@ -78,6 +142,55 @@ def print_convergence_history(result, max_show=10):
         for i, pos in enumerate(history):
             error = calculate_distance(pos, target)
             print(f"  Cycle {i}: Error = {error:.6f}")
+
+def verify_segment_positions(result):
+    """Verify that segment positions make sense"""
+    if not result.segment_end_effectors:
+        return True
+    
+    print(f"\n=== SEGMENT POSITION VERIFICATION ===")
+    
+    all_ok = True
+    segments = result.segment_end_effectors
+    
+    # Check that segments are in order of increasing distance from base
+    for i in range(len(segments) - 1):
+        curr_dist = segments[i].fabrik_distance_from_base
+        next_dist = segments[i+1].fabrik_distance_from_base
+        
+        if curr_dist >= next_dist:
+            print(f"✗ Segment {segments[i].segment_number} distance ({curr_dist:.3f}) >= "
+                  f"Segment {segments[i+1].segment_number} distance ({next_dist:.3f})")
+            all_ok = False
+        else:
+            print(f"✓ Segment {segments[i].segment_number} ({curr_dist:.3f}) < "
+                  f"Segment {segments[i+1].segment_number} ({next_dist:.3f})")
+    
+    # Check that prismatic lengths are reasonable
+    for seg in segments:
+        if seg.prismatic_length < 0:
+            print(f"✗ Segment {seg.segment_number} has negative prismatic length: {seg.prismatic_length:.3f}")
+            all_ok = False
+        elif seg.prismatic_length > 200:  # Reasonable upper bound
+            print(f"⚠️  Segment {seg.segment_number} has very large prismatic length: {seg.prismatic_length:.3f}")
+        else:
+            print(f"✓ Segment {seg.segment_number} prismatic length OK: {seg.prismatic_length:.3f}")
+    
+    # Check that final segment matches overall target
+    final_segment = segments[-1]
+    final_pos = final_segment.end_effector_position
+    target_pos = result.target_position
+    
+    distance_to_target = calculate_distance(final_pos, target_pos)
+    if distance_to_target > 1.0:  # Allow 1 unit tolerance
+        print(f"✗ Final segment position ({final_pos.x:.3f}, {final_pos.y:.3f}, {final_pos.z:.3f}) "
+              f"far from target ({target_pos.x:.3f}, {target_pos.y:.3f}, {target_pos.z:.3f}): "
+              f"distance = {distance_to_target:.3f}")
+        all_ok = False
+    else:
+        print(f"✓ Final segment close to target: distance = {distance_to_target:.3f}")
+    
+    return all_ok
 
 def test_multiple_targets():
     """Test multiple target positions"""
@@ -118,6 +231,7 @@ def test_multiple_targets():
             print(f"  Converged: {'✓' if result.converged else '✗'}")
             print(f"  Error: {result.final_error:.4f}")
             print(f"  Time: {result.solve_time_ms:.1f}ms")
+            print(f"  Segments: {len(result.segment_end_effectors)}")
         else:
             print(f"  Skipped (unreachable)")
 
@@ -157,6 +271,7 @@ def test_different_configurations():
         print(f"  Result: {'✓ Converged' if result.converged else '✗ No convergence'}")
         print(f"  Error: {result.final_error:.6f}")
         print(f"  Iterations: {result.total_iterations}")
+        print(f"  Segments: {len(result.segment_end_effectors)}")
         print(f"  Python time: {(end_time - start_time)*1000:.1f}ms")
         print(f"  C++ time: {result.solve_time_ms:.1f}ms")
 
@@ -212,7 +327,7 @@ def test_fabrik_solver():
         print("Build all FABRIK modules first (initialization, backward, forward, solver).")
         return False
     
-    print("Testing Complete FABRIK Solver Module")
+    print("Testing Complete FABRIK Solver Module with Segment End-Effectors")
     print("=" * 80)
     
     # Test 1: Basic solving
@@ -246,6 +361,10 @@ def test_fabrik_solver():
     result = fs.FabrikSolver.solve(initial_chain, target_position)
     
     print_solution_summary(result, "Default Configuration")
+    
+    # NEW! Print segment end-effector information
+    print_segment_end_effectors(result)
+    print_stacked_kinematics_plan(result)
     
     # Test 2: Solve with detailed configuration
     print(f"\n=== DETAILED CONFIGURATION TEST ===")
@@ -306,6 +425,9 @@ def test_fabrik_solver():
         if error >= 0.01:
             all_lengths_ok = False
     
+    # NEW! Verify segment end-effector positions
+    segments_valid = verify_segment_positions(result)
+    
     # Run additional tests
     test_multiple_targets()
     test_different_configurations()
@@ -320,6 +442,8 @@ def test_fabrik_solver():
         (is_valid, "Solution is structurally valid"),
         (all_lengths_ok, "Segment lengths preserved"),
         (base_distance_from_origin <= 0.1, "Base properly fixed at origin"),
+        (len(result.segment_end_effectors) > 0, "Segment end-effectors extracted"),
+        (segments_valid, "Segment positions are valid"),
     ]
     
     all_success = all(criterion[0] for criterion in success_criteria)
@@ -329,8 +453,10 @@ def test_fabrik_solver():
         print(f"  {status} {description}")
     
     if all_success:
-        print("\n🎉 FABRIK Solver working perfectly!")
+        print("\n🎉 FABRIK Solver with Segment End-Effectors working perfectly!")
         print("✓ Complete FABRIK algorithm implemented successfully")
+        print("✓ Segment end-effector positions extracted correctly")
+        print("✓ Ready for stacked kinematics implementation")
         print("✓ Ready for production use in delta robot control")
     else:
         print("\n⚠️  Some issues detected - check implementation")
@@ -343,6 +469,21 @@ def test_fabrik_solver():
     print(f"  - Total iterations: {result.total_iterations}")
     print(f"  - Solve time: {result.solve_time_ms:.2f}ms")
     print(f"  - Valid solution: {is_valid}")
+    print(f"  - Segment end-effectors: {len(result.segment_end_effectors)}")
+    
+    # NEW! Summary of what we can now do
+    print(f"\n=== NEXT STEPS FOR STACKED KINEMATICS ===")
+    if result.segment_end_effectors:
+        print("With the extracted segment end-effector positions, you can now:")
+        print("1. Implement coordinate system transformations")
+        print("2. Run iterative kinematics calculations for each segment")
+        print("3. Extract individual A/B/C Z-values and joint angles")
+        print("4. Control each physical segment independently")
+        print()
+        print("Segment end-effector data is available in:")
+        print("  result.segment_end_effectors[i].end_effector_position")
+        print("  result.segment_end_effectors[i].direction_from_base")
+        print("  result.segment_end_effectors[i].prismatic_length")
     
     return True
 

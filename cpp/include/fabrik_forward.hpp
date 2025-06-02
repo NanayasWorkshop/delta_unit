@@ -68,14 +68,12 @@ public:
     // Validation: Check if base is at origin
     static bool is_base_at_origin(const FabrikChain& chain, double tolerance = 0.01);
     
-private:
-    // Extract direction vectors from chain (modular for any number of segments)
+    // UPDATED! Expose these methods for use by FabrikSolver::extract_segment_end_effectors
     static std::vector<SegmentDirectionPair> extract_direction_pairs(const FabrikChain& chain);
-    
-    // Calculate segment properties from direction pairs
     static std::vector<SegmentProperties> calculate_segment_properties(
         const std::vector<SegmentDirectionPair>& direction_pairs);
     
+private:
     // Transform direction vectors to Z+ reference coordinate system
     static Vector3 transform_to_z_reference(const Vector3& reference_direction, 
                                            const Vector3& target_direction);

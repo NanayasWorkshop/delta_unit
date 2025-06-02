@@ -244,7 +244,7 @@ bool FabrikForward::is_base_at_origin(const FabrikChain& chain, double tolerance
     return base_pos.norm() <= tolerance;
 }
 
-// Private methods
+// UPDATED! Now public methods for use by FabrikSolver
 
 std::vector<SegmentDirectionPair> FabrikForward::extract_direction_pairs(const FabrikChain& chain) {
     std::vector<SegmentDirectionPair> pairs;
@@ -297,6 +297,8 @@ std::vector<SegmentProperties> FabrikForward::calculate_segment_properties(
     
     return properties;
 }
+
+// Private methods
 
 Vector3 FabrikForward::transform_to_z_reference(const Vector3& reference_direction, 
                                                const Vector3& target_direction) {
