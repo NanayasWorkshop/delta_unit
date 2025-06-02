@@ -4,7 +4,7 @@ Delta Robot Python Package
 
 # Import foundation types first
 try:
-    import delta_types
+    from . import delta_types
     
     # Make types available at package level
     Vector3 = delta_types.Vector3
@@ -30,10 +30,10 @@ except ImportError as e:
 
 # Import other modules
 try:
-    import fermat_module as fermat
-    import joint_state_module as joint_state
-    import kinematics_module as kinematics
-    import orientation_module as orientation
+    from . import fermat_module as fermat
+    from . import joint_state_module as joint_state
+    from . import kinematics_module as kinematics
+    from . import orientation_module as orientation
 except ImportError as e:
     raise ImportError(f"Failed to import modules: {e}")
 
