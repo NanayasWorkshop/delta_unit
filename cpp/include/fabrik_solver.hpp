@@ -38,11 +38,11 @@ struct FabrikSolverConfig {
     bool track_convergence_history;             // Store position history
     bool verbose_logging;                       // Enable debug output
     
-    // Default configuration
+    // Default configuration using constants
     FabrikSolverConfig()
-        : tolerance(FABRIK_TOLERANCE)
-        , max_iterations(FABRIK_MAX_ITERATIONS)
-        , max_backward_forward_cycles(50)
+        : tolerance(FABRIK_TOLERANCE)                        // 0.01 from constants.hpp
+        , max_iterations(FABRIK_MAX_ITERATIONS)              // 100 from constants.hpp  
+        , max_backward_forward_cycles(FABRIK_MAX_ITERATIONS / 2)  // 50 (half of max iterations)
         , enable_constraints(true)
         , track_convergence_history(false)
         , verbose_logging(false) {}
@@ -81,6 +81,9 @@ private:
     static FabrikSolutionResult run_fabrik_algorithm(const FabrikChain& initial_chain,
                                                     const Vector3& target_position,
                                                     const FabrikSolverConfig& config);
+    
+    // Segment length management - CRITICAL for preventing oscillation
+    static void update_segment_lengths(FabrikChain& chain, const std::vector<double>& new_lengths);
     
     // Convergence checking
     static bool has_converged(const Vector3& end_effector, const Vector3& target, double tolerance);

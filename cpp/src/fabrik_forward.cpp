@@ -118,6 +118,14 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
 
         Vector3 guidance_point_for_direction = J_current_original;
 
+        // SPECIAL CASE: First joint after base (J_1) must always go straight up in Z+
+        if (i == 1) {
+            // Force the first joint to be directly above the base in Z+ direction
+            Vector3 final_placement_direction = Vector3(0, 0, 1); // Straight up in Z+
+            updated_chain.joints[i].position = J_prev_prime + final_placement_direction * segment_length;
+            continue; // Skip cone constraint logic for first joint
+        }
+
         // Cone Constraint Logic:
         // The constraint is at joint J_i-1 (which is J_prev_prime).
         // The cone's apex is at J_i-1'.
