@@ -8,7 +8,28 @@ import os
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+def parse_coordinates(coord_str):
+    """Parse coordinate string like '5,4,7' into x,y,z values"""
+    try:
+        coords = [float(x.strip()) for x in coord_str.split(',')]
+        if len(coords) != 3:
+            raise ValueError("Expected 3 coordinates")
+        return coords
+    except ValueError as e:
+        print(f"Error parsing coordinates '{coord_str}': {e}")
+        print("Expected format: x,y,z (e.g., 5,4,7)")
+        sys.exit(1)
+
 def test_fermat_module():
+    # Parse command line arguments for direction vector
+    if len(sys.argv) == 2:
+        x, y, z = parse_coordinates(sys.argv[1])
+        print(f"Using command line direction: ({x}, {y}, {z})")
+    else:
+        x, y, z = 5, 4, 7
+        print("Using default direction: (5, 4, 7)")
+        print("Usage: python3 test_fermat.py x,y,z")
+    
     try:
         import fermat_module as fm
     except ImportError:
@@ -19,9 +40,9 @@ def test_fermat_module():
     print("=" * 30)
     
     # Test with coordinates
-    result = fm.FermatModule.calculate(5, 4, 7)
+    result = fm.FermatModule.calculate(x, y, z)
     
-    print(f"Input: (5, 4, 7)")
+    print(f"Input: ({x}, {y}, {z})")
     print(f"Z positions:")
     print(f"  A: {result.z_A:.4f}")
     print(f"  B: {result.z_B:.4f}")

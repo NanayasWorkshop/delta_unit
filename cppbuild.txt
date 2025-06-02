@@ -1,0 +1,31 @@
+cd cpp
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+
+
+
+
+cd ../..
+python3 test.py --num-points 100 --compare --visualize
+
+python3 test.py --visualize-math --math-points "2, 28, 150"
+python3 test.py --math-points "2, 28, 150"
+
+python3 test.py --num-points 100 --compare-formats
+
+
+git add .
+git commit -m "Initial commit"
+
+
+git push -u origin main
+
+
+
+git revert --no-commit HEAD..28b6f10
+git commit -m "Revert back to 28b6f10"
+git push origin main
+
+git clean -fdx
