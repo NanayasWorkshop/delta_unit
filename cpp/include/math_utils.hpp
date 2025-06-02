@@ -25,6 +25,15 @@ struct Vector3 {
         return Vector3(x * scalar, y * scalar, z * scalar);
     }
     
+    // Add missing division operator
+    Vector3 operator/(double scalar) const {
+        if (scalar == 0.0) {
+            // Handle division by zero - return zero vector
+            return Vector3(0, 0, 0);
+        }
+        return Vector3(x / scalar, y / scalar, z / scalar);
+    }
+    
     double dot(const Vector3& other) const {
         return x * other.x + y * other.y + z * other.z;
     }

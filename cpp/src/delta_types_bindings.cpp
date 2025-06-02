@@ -19,6 +19,7 @@ PYBIND11_MODULE(delta_types, m) {
         .def("__add__", &delta::Vector3::operator+)
         .def("__sub__", &delta::Vector3::operator-)
         .def("__mul__", &delta::Vector3::operator*)
+        .def("__truediv__", &delta::Vector3::operator/, "Division operator for scalar division")
         .def("__repr__", [](const delta::Vector3& v) {
             return "Vector3(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
         });
