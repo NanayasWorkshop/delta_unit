@@ -300,11 +300,6 @@ def visualize_fabrik_enhanced(target_x, target_y, target_z):
     ax.scatter([target_x], [target_y], [target_z], color='gold', s=300, 
                marker='X', label='Target', edgecolor='black', linewidth=2)
     
-    # Plot target vector from origin
-    ax.quiver(0, 0, 0, target_x, target_y, target_z, 
-              color='gold', alpha=0.7, arrow_length_ratio=0.05, linewidth=3, 
-              label='Target Vector')
-    
     # Set axis properties
     max_range = max(abs(target_x), abs(target_y), abs(target_z), init_result.total_reach) * 1.1
     ax.set_xlim([-max_range/4, max_range])
@@ -313,7 +308,7 @@ def visualize_fabrik_enhanced(target_x, target_y, target_z):
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
-    ax.set_title('FABRIK Complete Cycle with Target Vector Analysis', fontsize=14, weight='bold')
+    ax.set_title('FABRIK Complete Cycle with Target Analysis', fontsize=14, weight='bold')
     ax.legend(loc='upper left')
     
     # Calculate debug information
@@ -451,7 +446,7 @@ def main():
         target_x, target_y, target_z = parse_coordinates(sys.argv[1])
     else:
         target_x, target_y, target_z = 100, 100, 300
-        print("Usage: python3 test_fabrik_forward_visual_enhanced.py x,y,z")
+        print("Usage: python3 test_fabrik_forward_visual.py x,y,z")
     
     print(f"Enhanced FABRIK visualization for target: ({target_x}, {target_y}, {target_z})")
     visualize_fabrik_enhanced(target_x, target_y, target_z)

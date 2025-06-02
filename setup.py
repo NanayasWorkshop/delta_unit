@@ -57,20 +57,35 @@ ext_modules = [
     # FABRIK Backward module
     Pybind11Extension(
         "delta_robot.fabrik_backward",
-        ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
+        ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", 
+         "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
         include_dirs=["cpp/include", pybind11.get_include()],
         language='c++',
         cxx_std=17,
     ),
-    # FABRIK Forward module - FIXED with kinematics_module.cpp
+    # FABRIK Forward module - FIXED: Include ALL required object files
     Pybind11Extension(
         "delta_robot.fabrik_forward",
-        ["cpp/src/fabrik_forward_bindings.cpp", "cpp/src/fabrik_forward.cpp", 
-         "cpp/src/fabrik_initialization.cpp", "cpp/src/kinematics_module.cpp",
-         "cpp/src/fermat_module.cpp", "cpp/src/joint_state.cpp", "cpp/src/math_utils.cpp"],
+        [
+            # Primary sources
+            "cpp/src/fabrik_forward_bindings.cpp", 
+            "cpp/src/fabrik_forward.cpp",
+            # FABRIK dependencies
+            "cpp/src/fabrik_initialization.cpp",
+            # Kinematics chain (required by fabrik_forward.cpp)
+            "cpp/src/kinematics_module.cpp",
+            "cpp/src/fermat_module.cpp", 
+            "cpp/src/joint_state.cpp",
+            # Base math utilities
+            "cpp/src/math_utils.cpp"
+        ],
         include_dirs=["cpp/include", pybind11.get_include()],
         language='c++',
         cxx_std=17,
+        # Add extra compile args for debugging if needed
+        extra_compile_args=['-O2'],
+        # Ensure proper linking
+        extra_link_args=[],
     ),
 ]
 
