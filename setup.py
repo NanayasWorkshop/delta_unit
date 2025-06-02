@@ -19,6 +19,15 @@ ext_modules = [
         language='c++',
         cxx_std=17,
     ),
+    # Kinematics module
+    Pybind11Extension(
+        "kinematics_module",
+        ["cpp/src/kinematics_bindings.cpp", "cpp/src/kinematics_module.cpp", 
+         "cpp/src/fermat_module.cpp", "cpp/src/joint_state.cpp", "cpp/src/math_utils.cpp"],
+        include_dirs=["cpp/include", pybind11.get_include()],
+        language='c++',
+        cxx_std=17,
+    ),
 ]
 
 setup(
