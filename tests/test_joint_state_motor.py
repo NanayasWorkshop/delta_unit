@@ -33,9 +33,11 @@ def main():
     
     try:
         import delta_robot.joint_state_motor as motor
+        import delta_robot.kinematics_module as kinematics
+        import delta_robot.orientation_module as orientation
     except ImportError as e:
         print(f"Error: {e}")
-        print("Build the module first: python setup.py build_ext --inplace")
+        print("Build the modules first: python setup.py build_ext --inplace")
         return
     
     print("=" * 50)
@@ -49,6 +51,38 @@ def main():
     print(f"Achieved:  ({result.achieved_end_effector.x:.3f}, {result.achieved_end_effector.y:.3f}, {result.achieved_end_effector.z:.3f})")
     print(f"Converged: {'YES' if result.fabrik_converged else 'NO'}")
     print(f"Error:     {result.fabrik_error:.6f}")
+    
+    # NEW: Get first segment end-effector and run through kinematics + orientation
+    if result.fabrik_result.segment_end_effectors:
+        first_segment = result.fabrik_result.segment_end_effectors[0]
+        seg_pos = first_segment.end_effector_position
+        
+        print("=" * 50)
+        print("FIRST SEGMENT ANALYSIS:")
+        print(f"Segment 1 End-Effector: ({seg_pos.x:.3f}, {seg_pos.y:.3f}, {seg_pos.z:.3f})")
+        
+        # Run through kinematics module
+        kinematics_result = kinematics.KinematicsModule.calculate(seg_pos.x, seg_pos.y, seg_pos.z)
+        
+        print(f"\nA B C Z Values:")
+        print(f"  z_A: {kinematics_result.fermat_data.z_A:.6f}")
+        print(f"  z_B: {kinematics_result.fermat_data.z_B:.6f}")
+        print(f"  z_C: {kinematics_result.fermat_data.z_C:.6f}")
+        
+        print(f"\nJoint States:")
+        print(f"  Prismatic: {kinematics_result.joint_state_data.prismatic_joint:.6f}")
+        print(f"  Roll:      {kinematics_result.joint_state_data.roll_joint:.6f} rad ({kinematics_result.joint_state_data.roll_joint * 180 / 3.14159:.2f}°)")
+        print(f"  Pitch:     {kinematics_result.joint_state_data.pitch_joint:.6f} rad ({kinematics_result.joint_state_data.pitch_joint * 180 / 3.14159:.2f}°)")
+        
+        # Run through orientation module
+        orientation_result = orientation.OrientationModule.calculate_from_kinematics(kinematics_result)
+        
+        print(f"\nEnd-Effector UVW Orientation:")
+        final_frame = orientation_result.final_frame
+        print(f"  U-axis: ({final_frame.u_axis.x:.6f}, {final_frame.u_axis.y:.6f}, {final_frame.u_axis.z:.6f})")
+        print(f"  V-axis: ({final_frame.v_axis.x:.6f}, {final_frame.v_axis.y:.6f}, {final_frame.v_axis.z:.6f})")
+        print(f"  W-axis: ({final_frame.w_axis.x:.6f}, {final_frame.w_axis.y:.6f}, {final_frame.w_axis.z:.6f})")
+    
     print("=" * 50)
 
 if __name__ == "__main__":
