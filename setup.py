@@ -107,6 +107,31 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=['-O2'],
     ),
+    # NEW! Motor Module - Orchestrates FABRIK + Kinematics + Orientation
+    Pybind11Extension(
+        "delta_robot.motor_module",
+        [
+            # Primary sources
+            "cpp/src/motor_module_bindings.cpp", 
+            "cpp/src/motor_module.cpp",
+            # FABRIK solver dependencies (complete chain)
+            "cpp/src/fabrik_solver.cpp",
+            "cpp/src/fabrik_backward.cpp",
+            "cpp/src/fabrik_forward.cpp",
+            "cpp/src/fabrik_initialization.cpp",
+            # Kinematics and Orientation dependencies
+            "cpp/src/kinematics_module.cpp",
+            "cpp/src/orientation_module.cpp",
+            "cpp/src/fermat_module.cpp", 
+            "cpp/src/joint_state.cpp",
+            # Base math utilities
+            "cpp/src/math_utils.cpp"
+        ],
+        include_dirs=["cpp/include", pybind11.get_include()],
+        language='c++',
+        cxx_std=17,
+        extra_compile_args=['-O2'],
+    ),
     ]
 
 setup(
