@@ -5,7 +5,7 @@
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(joint_state_motor, m) {
-    m.doc() = "Delta robot joint state motor module - Converts targets to motor positions";
+    m.doc() = "Delta robot joint state motor module - SIMPLIFIED SINGLE SEGMENT VERSION";
     
     // SegmentMotorData structure - Motor data for individual segments
     pybind11::class_<delta::SegmentMotorData>(m, "SegmentMotorData")
@@ -22,12 +22,9 @@ PYBIND11_MODULE(joint_state_motor, m) {
         .def_readonly("local_to_world", &delta::SegmentMotorData::local_to_world)
         .def("__repr__", [](const delta::SegmentMotorData& s) {
             return "SegmentMotorData(segment=" + std::to_string(s.segment_number) + 
-                   ", fabrik=(" + std::to_string(s.fabrik_position.x) + "," + 
+                   ", position=(" + std::to_string(s.fabrik_position.x) + "," + 
                    std::to_string(s.fabrik_position.y) + "," + 
                    std::to_string(s.fabrik_position.z) + 
-                   "), local=(" + std::to_string(s.local_position.x) + "," + 
-                   std::to_string(s.local_position.y) + "," + 
-                   std::to_string(s.local_position.z) + 
                    "), motors=[zA=" + std::to_string(s.z_A) + 
                    ", zB=" + std::to_string(s.z_B) + 
                    ", zC=" + std::to_string(s.z_C) + 
@@ -36,7 +33,7 @@ PYBIND11_MODULE(joint_state_motor, m) {
                    ", pitch=" + std::to_string(s.pitch_joint * 180 / 3.14159) + "°])";
         });
     
-    // JointStateMotorResult structure - Main output with all segment motor data
+    // JointStateMotorResult structure - Main output with single segment data
     pybind11::class_<delta::JointStateMotorResult>(m, "JointStateMotorResult")
         .def_readonly("target_position", &delta::JointStateMotorResult::target_position)
         .def_readonly("achieved_end_effector", &delta::JointStateMotorResult::achieved_end_effector)
@@ -55,36 +52,36 @@ PYBIND11_MODULE(joint_state_motor, m) {
                    ", error=" + std::to_string(r.fabrik_error) +
                    ", iterations=" + std::to_string(r.fabrik_iterations) +
                    ", time=" + std::to_string(r.solve_time_ms) + "ms" +
-                   ", segments=" + std::to_string(r.all_segment_motors.size()) + ")";
+                   ", segments_processed=" + std::to_string(r.all_segment_motors.size()) + ")";
         });
     
-    // JointStateMotorModule - Main interface
+    // JointStateMotorModule - Main interface (SIMPLIFIED)
     pybind11::class_<delta::JointStateMotorModule>(m, "JointStateMotorModule")
         .def_static("calculate_motors",
                    pybind11::overload_cast<double, double, double>(&delta::JointStateMotorModule::calculate_motors),
                    "target_x"_a, "target_y"_a, "target_z"_a,
-                   "Calculate motor positions from target coordinates")
+                   "Calculate motor positions from target coordinates (SINGLE SEGMENT)")
         .def_static("calculate_motors",
                    pybind11::overload_cast<const delta::Vector3&>(&delta::JointStateMotorModule::calculate_motors),
                    "target_position"_a,
-                   "Calculate motor positions from target Vector3")
+                   "Calculate motor positions from target Vector3 (SINGLE SEGMENT)")
         .def_static("calculate_motors_advanced",
                    &delta::JointStateMotorModule::calculate_motors_advanced,
                    "target_position"_a, "num_segments"_a, "tolerance"_a, "max_iterations"_a,
-                   "Calculate motor positions with advanced FABRIK configuration")
+                   "Calculate motor positions with advanced FABRIK configuration (SINGLE SEGMENT)")
         .def_static("is_target_reachable",
                    &delta::JointStateMotorModule::is_target_reachable,
                    "target_position"_a, "num_segments"_a = delta::DEFAULT_ROBOT_SEGMENTS,
                    "Check if target is within robot workspace");
     
-    // Utility functions
+    // Utility functions (SIMPLIFIED)
     m.def("solve_target", &delta::joint_state_utils::solve_target,
           "x"_a, "y"_a, "z"_a,
-          "Quick solve for target with default parameters");
+          "Quick solve for target with default parameters (SINGLE SEGMENT)");
     
     m.def("solve_multiple_targets", &delta::joint_state_utils::solve_multiple_targets,
           "targets"_a,
-          "Solve multiple targets in batch");
+          "Solve multiple targets in batch (SINGLE SEGMENT each)");
     
     m.def("test_workspace_point", &delta::joint_state_utils::test_workspace_point,
           "x"_a, "y"_a, "z"_a,
@@ -94,4 +91,8 @@ PYBIND11_MODULE(joint_state_motor, m) {
     m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
     m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
     m.attr("FABRIK_MAX_ITERATIONS") = delta::FABRIK_MAX_ITERATIONS;
+    
+    // Module info
+    m.attr("__version__") = "1.0.0-single-segment";
+    m.attr("__description__") = "Simplified single segment motor calculation for debugging";
 }

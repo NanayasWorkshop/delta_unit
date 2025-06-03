@@ -53,7 +53,7 @@ struct JointStateMotorResult {
 
 class JointStateMotorModule {
 public:
-    // Main interface: sequential calculation (the ONLY correct method)
+    // Main interface: SIMPLIFIED single segment calculation
     static JointStateMotorResult calculate_motors(double target_x, double target_y, double target_z);
     static JointStateMotorResult calculate_motors(const Vector3& target_position);
     
@@ -73,14 +73,9 @@ private:
                                                    double tolerance,
                                                    int max_iterations);
     
-    // CORRECTED: Sequential calculation with proper coordinate system progression
-    static std::vector<SegmentMotorData> calculate_all_segment_motors_sequential(
+    // SIMPLIFIED: Process only the first segment
+    static std::vector<SegmentMotorData> calculate_single_segment_only(
         const std::vector<SegmentEndEffectorData>& segment_end_effectors);
-    
-    // Transform coordinates using relative positioning instead of absolute transformation
-    static Vector3 transform_to_local_coordinates(const Vector3& world_position, 
-                                                  const Vector3& reference_position,
-                                                  const CoordinateFrame& reference_frame);
     
     static SegmentMotorData calculate_single_segment_motors(
         int segment_number,

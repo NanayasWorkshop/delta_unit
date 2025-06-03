@@ -1,3 +1,5 @@
+// SIMPLIFIED joint_state_motor.cpp - SINGLE SEGMENT ONLY
+
 #include "joint_state_motor.hpp"
 #include <iostream>
 #include <chrono>
@@ -21,7 +23,7 @@ JointStateMotorResult JointStateMotorModule::calculate_motors_advanced(const Vec
                                                                       double tolerance,
                                                                       int max_iterations) {
     
-    std::cout << "=== Sequential Joint State Motor Module ===" << std::endl;
+    std::cout << "=== SIMPLE Single Segment Motor Module ===" << std::endl;
     std::cout << "Target: (" << target_position.x << ", " << target_position.y << ", " << target_position.z << ")" << std::endl;
     std::cout << "Using " << num_segments << " segments, tolerance: " << tolerance << std::endl;
     
@@ -50,24 +52,10 @@ JointStateMotorResult JointStateMotorModule::calculate_motors_advanced(const Vec
         }
     }
     
-    // Print motor calculations
-    if (!result.all_segment_motors.empty()) {
-        std::cout << "\n=== Sequential Motor Calculations ===" << std::endl;
-        for (const auto& motor_data : result.all_segment_motors) {
-            std::cout << "\nSegment " << motor_data.segment_number << " Motors:" << std::endl;
-            std::cout << "  FABRIK Position: (" << motor_data.fabrik_position.x << ", " 
-                      << motor_data.fabrik_position.y << ", " << motor_data.fabrik_position.z << ")" << std::endl;
-            std::cout << "  Local Position:  (" << motor_data.local_position.x << ", " 
-                      << motor_data.local_position.y << ", " << motor_data.local_position.z << ")" << std::endl;
-            std::cout << "  Base Motors: z_A=" << motor_data.z_A << ", z_B=" << motor_data.z_B 
-                      << ", z_C=" << motor_data.z_C << std::endl;
-            std::cout << "  Joint Motors: prismatic=" << motor_data.prismatic_joint 
-                      << ", roll=" << motor_data.roll_joint * 180/M_PI << "°" 
-                      << ", pitch=" << motor_data.pitch_joint * 180/M_PI << "°" << std::endl;
-        }
-    } else {
-        std::cout << "\n=== Motor Positions (Not Calculated) ===" << std::endl;
-        std::cout << "Enable motor calculations by ensuring FABRIK has segment end-effectors" << std::endl;
+    // SIMPLIFIED: Only process FIRST segment
+    if (!result.fabrik_result.segment_end_effectors.empty()) {
+        std::cout << "\n=== PROCESSING FIRST SEGMENT ONLY ===" << std::endl;
+        result.all_segment_motors = calculate_single_segment_only(result.fabrik_result.segment_end_effectors);
     }
     
     std::cout << "===============================\n" << std::endl;
@@ -115,98 +103,61 @@ JointStateMotorResult JointStateMotorModule::solve_with_fabrik(const Vector3& ta
         fabrik_result
     );
     
-    // Calculate motor positions for all segments using CORRECTED sequential method
-    if (!fabrik_result.segment_end_effectors.empty()) {
-        motor_result.all_segment_motors = calculate_all_segment_motors_sequential(fabrik_result.segment_end_effectors);
-    }
-    
     return motor_result;
 }
 
-// CORRECTED: Sequential calculation with proper UVW→XYZ alignment
-std::vector<SegmentMotorData> JointStateMotorModule::calculate_all_segment_motors_sequential(
+// SIMPLIFIED: Process only the first segment
+std::vector<SegmentMotorData> JointStateMotorModule::calculate_single_segment_only(
     const std::vector<SegmentEndEffectorData>& segment_end_effectors) {
     
-    std::vector<SegmentMotorData> all_motor_data;
-    std::vector<Vector3> current_positions;
+    std::vector<SegmentMotorData> motor_data_list;
     
-    // Extract all segment positions from FABRIK
-    for (const auto& seg : segment_end_effectors) {
-        current_positions.push_back(seg.end_effector_position);
+    if (segment_end_effectors.empty()) {
+        std::cout << "No segment end-effectors available" << std::endl;
+        return motor_data_list;
     }
     
-    std::cout << "\n=== Sequential Transformation Process ===" << std::endl;
+    // Get ONLY the first segment
+    const SegmentEndEffectorData& first_segment = segment_end_effectors[0];
+    Vector3 segment_position = first_segment.end_effector_position;
     
-    // Sequential calculation for each segment
-    for (size_t i = 0; i < segment_end_effectors.size(); i++) {
-        Vector3 current_position = current_positions[i];
-        
-        std::cout << "\n--- Processing Segment " << (i+1) << " ---" << std::endl;
-        std::cout << "Current position: (" << current_position.x << ", " << current_position.y << ", " << current_position.z << ")" << std::endl;
-        
-        // Calculate motor data for current segment using current position
-        SegmentMotorData motor_data = calculate_single_segment_motors(
-            segment_end_effectors[i].segment_number,
-            segment_end_effectors[i].end_effector_position,  // Original FABRIK position
-            current_position                                 // Current (possibly transformed) position
-        );
-        
-        all_motor_data.push_back(motor_data);
-        
-        // If not the last segment, transform remaining positions
-        if (i < segment_end_effectors.size() - 1) {
-            std::cout << "Transforming remaining " << (segment_end_effectors.size() - i - 1) << " segments" << std::endl;
-            std::cout << "Using UVW frame from Segment " << (i+1) << " to align with XYZ" << std::endl;
-            
-            // Transform remaining positions to align UVW→XYZ
-            for (size_t j = i + 1; j < current_positions.size(); j++) {
-                Vector3 transformed_position = transform_to_local_coordinates(
-                    current_positions[j],           // World position to transform
-                    motor_data.fabrik_position,     // Reference position (current segment)
-                    motor_data.uvw_frame           // Reference UVW frame
-                );
-                
-                std::cout << "  Segment " << (j+1) << ": (" 
-                          << current_positions[j].x << ", " << current_positions[j].y << ", " << current_positions[j].z 
-                          << ") → (" << transformed_position.x << ", " << transformed_position.y << ", " << transformed_position.z << ")" << std::endl;
-                
-                current_positions[j] = transformed_position;
-            }
-        }
+    std::cout << "\n=== SINGLE SEGMENT ANALYSIS ===" << std::endl;
+    std::cout << "Processing Segment " << first_segment.segment_number << std::endl;
+    std::cout << "Position: (" << segment_position.x << ", " << segment_position.y << ", " << segment_position.z << ")" << std::endl;
+    
+    // Calculate motors for this segment
+    SegmentMotorData motor_data = calculate_single_segment_motors(
+        first_segment.segment_number,
+        segment_position,  // FABRIK position
+        segment_position   // Local position (same as FABRIK - no transformation)
+    );
+    
+    motor_data_list.push_back(motor_data);
+    
+    // Print detailed results
+    std::cout << "\n=== KINEMATICS RESULTS ===" << std::endl;
+    std::cout << "Base Motors: z_A=" << motor_data.z_A << ", z_B=" << motor_data.z_B << ", z_C=" << motor_data.z_C << std::endl;
+    std::cout << "Joint Motors: prismatic=" << motor_data.prismatic_joint 
+              << ", roll=" << motor_data.roll_joint * 180/M_PI << "°" 
+              << ", pitch=" << motor_data.pitch_joint * 180/M_PI << "°" << std::endl;
+    
+    std::cout << "\n=== ORIENTATION RESULTS ===" << std::endl;
+    CoordinateFrame uvw = motor_data.uvw_frame;
+    std::cout << "UVW Frame Origin: (" << uvw.origin.x << ", " << uvw.origin.y << ", " << uvw.origin.z << ")" << std::endl;
+    std::cout << "U-axis: (" << uvw.u_axis.x << ", " << uvw.u_axis.y << ", " << uvw.u_axis.z << ")" << std::endl;
+    std::cout << "V-axis: (" << uvw.v_axis.x << ", " << uvw.v_axis.y << ", " << uvw.v_axis.z << ")" << std::endl;
+    std::cout << "W-axis: (" << uvw.w_axis.x << ", " << uvw.w_axis.y << ", " << uvw.w_axis.z << ")" << std::endl;
+    
+    // Check if UVW frame origin matches segment position
+    double position_match_distance = (uvw.origin - segment_position).norm();
+    std::cout << "Position match distance: " << position_match_distance << std::endl;
+    if (position_match_distance > 0.001) {
+        std::cout << "⚠️  UVW frame origin doesn't match segment position!" << std::endl;
+    } else {
+        std::cout << "✓ UVW frame origin matches segment position" << std::endl;
     }
     
-    return all_motor_data;
-}
-
-// Transform world coordinates to local coordinate system where UVW aligns with XYZ
-Vector3 JointStateMotorModule::transform_to_local_coordinates(const Vector3& world_position, 
-                                                             const Vector3& reference_position,
-                                                             const CoordinateFrame& reference_frame) {
-    
-    // Step 1: Translate to make reference position the origin
-    Vector3 translated = world_position - reference_position;
-    
-    // Step 2: Rotate to align UVW with XYZ
-    // We want to transform from world coordinates to local coordinates where:
-    // - reference_frame.u_axis becomes (1,0,0)
-    // - reference_frame.v_axis becomes (0,1,0)  
-    // - reference_frame.w_axis becomes (0,0,1)
-    
-    // Create transformation matrix (inverse of UVW frame)
-    // Since UVW is orthonormal, inverse = transpose
-    double local_x = translated.x * reference_frame.u_axis.x + 
-                     translated.y * reference_frame.u_axis.y + 
-                     translated.z * reference_frame.u_axis.z;
-    
-    double local_y = translated.x * reference_frame.v_axis.x + 
-                     translated.y * reference_frame.v_axis.y + 
-                     translated.z * reference_frame.v_axis.z;
-    
-    double local_z = translated.x * reference_frame.w_axis.x + 
-                     translated.y * reference_frame.w_axis.y + 
-                     translated.z * reference_frame.w_axis.z;
-    
-    return Vector3(local_x, local_y, local_z);
+    return motor_data_list;
 }
 
 SegmentMotorData JointStateMotorModule::calculate_single_segment_motors(
@@ -218,7 +169,10 @@ SegmentMotorData JointStateMotorModule::calculate_single_segment_motors(
     SegmentMotorData motor_data(segment_number, fabrik_position);
     motor_data.local_position = local_position;
     
-    // Run kinematics calculation on local position (transformed coordinates)
+    std::cout << "\n--- Running Kinematics on Position: (" 
+              << local_position.x << ", " << local_position.y << ", " << local_position.z << ") ---" << std::endl;
+    
+    // Run kinematics calculation on local position
     KinematicsResult kinematics_result = KinematicsModule::calculate(local_position);
     
     // Extract motor positions
@@ -228,6 +182,8 @@ SegmentMotorData JointStateMotorModule::calculate_single_segment_motors(
     motor_data.prismatic_joint = kinematics_result.joint_state_data.prismatic_joint;
     motor_data.roll_joint = kinematics_result.joint_state_data.roll_joint;
     motor_data.pitch_joint = kinematics_result.joint_state_data.pitch_joint;
+    
+    std::cout << "--- Running Orientation on Kinematics Result ---" << std::endl;
     
     // Get orientation data (UVW frame) from the local position
     OrientationResult orientation_result = OrientationModule::calculate_from_kinematics(kinematics_result);
@@ -248,7 +204,7 @@ std::vector<JointStateMotorResult> solve_multiple_targets(const std::vector<Vect
     std::vector<JointStateMotorResult> results;
     results.reserve(targets.size());
     
-    std::cout << "Solving " << targets.size() << " targets with sequential calculation..." << std::endl;
+    std::cout << "Solving " << targets.size() << " targets with SINGLE SEGMENT calculation..." << std::endl;
     
     for (size_t i = 0; i < targets.size(); i++) {
         std::cout << "\n--- Target " << (i + 1) << "/" << targets.size() << " ---" << std::endl;
