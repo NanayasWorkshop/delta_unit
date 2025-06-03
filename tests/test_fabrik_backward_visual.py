@@ -96,58 +96,6 @@ def plot_chain(ax, chain, color='blue', alpha=1.0, linewidth=2, label='Chain', s
     
     return positions
 
-def plot_segment_lengths_analysis(ax, initial_chain, final_chain):
-    """Plot segment length analysis"""
-    
-    initial_lengths = []
-    final_lengths = []
-    expected_lengths = []
-    
-    # Calculate lengths for initial chain
-    for i, segment in enumerate(initial_chain.segments):
-        start_pos = initial_chain.joints[segment.start_joint_index].position
-        end_pos = initial_chain.joints[segment.end_joint_index].position
-        
-        length = math.sqrt((end_pos.x - start_pos.x)**2 + 
-                          (end_pos.y - start_pos.y)**2 + 
-                          (end_pos.z - start_pos.z)**2)
-        initial_lengths.append(length)
-        expected_lengths.append(segment.length)
-    
-    # Calculate lengths for final chain
-    for i, segment in enumerate(final_chain.segments):
-        start_pos = final_chain.joints[segment.start_joint_index].position
-        end_pos = final_chain.joints[segment.end_joint_index].position
-        
-        length = math.sqrt((end_pos.x - start_pos.x)**2 + 
-                          (end_pos.y - start_pos.y)**2 + 
-                          (end_pos.z - start_pos.z)**2)
-        final_lengths.append(length)
-    
-    segments = range(len(expected_lengths))
-    width = 0.25
-    
-    x_pos = np.arange(len(segments))
-    
-    ax.bar(x_pos - width, expected_lengths, width, label='Expected', color='green', alpha=0.7)
-    ax.bar(x_pos, initial_lengths, width, label='Initial', color='blue', alpha=0.7)
-    ax.bar(x_pos + width, final_lengths, width, label='Final', color='red', alpha=0.7)
-    
-    ax.set_xlabel('Segment Index')
-    ax.set_ylabel('Length')
-    ax.set_title('Segment Length Comparison')
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels([f'Seg {i}' for i in segments])
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    
-    # Add error text
-    for i, (exp, final) in enumerate(zip(expected_lengths, final_lengths)):
-        error = abs(exp - final)
-        ax.text(i, max(exp, final) + 5, f'±{error:.1f}', 
-                ha='center', va='bottom', fontsize=8,
-                color='red' if error > 1 else 'green')
-
 def visualize_fabrik_backward(target_x, target_y, target_z):
     """Create 3D visualization of FABRIK backward iteration"""
     
@@ -155,13 +103,20 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
         import delta_robot.fabrik_initialization as fi
         import delta_robot.fabrik_backward as fb
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: delta_robot package not found: {e}")
         return False
     
+    # ✅ USE THE SAME CONSTANT AS THE SYSTEM - NO MORE HARDCODING!
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    print(f"Using DEFAULT_ROBOT_SEGMENTS = {num_segments} from C++ constants")
+    
     # Initialize robot chain
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     initial_chain = init_result.chain
+    
+    print(f"Initialized {num_segments}-segment robot with {len(initial_chain.joints)} joints")
     
     # Create target position
     target_position = dt.Vector3(target_x, target_y, target_z)
@@ -200,7 +155,7 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
     ax1.set_xlabel('X')
     ax1.set_ylabel('Y')
     ax1.set_zlabel('Z')
-    ax1.set_title('FABRIK Backward Iteration: Before vs After')
+    ax1.set_title(f'FABRIK Backward Iteration: {num_segments}-Segment Robot\nBefore vs After')
     ax1.legend()
     
     # Set equal aspect ratio
@@ -222,6 +177,7 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
             (final_joint.position.z - initial_joint.position.z)**2
         )
         joint_movements.append(movement)
+    
     # Calculate final distances for verification
     final_end_effector = fb.FabrikBackward.get_end_effector_position(final_chain)
     distance_to_target = math.sqrt(
@@ -253,6 +209,9 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
     summary_text = f"""
 FABRIK BACKWARD ITERATION ANALYSIS
 
+Robot Configuration: {num_segments} segments, {len(initial_chain.joints)} joints
+Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}
+
 Target: ({target_x}, {target_y}, {target_z})
 Target Reachable: {'✓ YES' if reachable else '✗ NO'}
 Distance from Base: {math.sqrt(target_x**2 + target_y**2 + target_z**2):.1f}
@@ -279,11 +238,14 @@ SEGMENT LENGTH VIOLATIONS:
         summary_text += "✓ All segment lengths preserved\n"
     
     summary_text += f"""
-JOINT MOVEMENTS:
+JOINT MOVEMENTS (showing first 10):
 """
-    for i, movement in enumerate(joint_movements):
+    for i, movement in enumerate(joint_movements[:10]):  # Show only first 10 joints
         joint_type = str(initial_chain.joints[i].type).split('.')[-1] if hasattr(initial_chain.joints[i].type, 'name') else str(initial_chain.joints[i].type)
         summary_text += f"   Joint {i} ({joint_type[:8]}): {movement:.1f} units\n"
+    
+    if len(joint_movements) > 10:
+        summary_text += f"   ... and {len(joint_movements) - 10} more joints\n"
     
     summary_text += f"""
 ALGORITHM STATUS:
@@ -291,11 +253,12 @@ ALGORITHM STATUS:
 {'✓' if base_moved else '✗'} Base movement enabled
 {'✓' if distance_to_target < 0.1 else '✗'} Target reached
 {'✓' if len(segment_violations) == 0 else '✗'} Segment lengths preserved
+✓ Using {num_segments} segments dynamically
 
 Next: Forward iteration will fix base to (0,0,0)
 """
     
-    ax2.text(0.05, 0.95, summary_text, transform=ax2.transAxes, fontsize=11,
+    ax2.text(0.05, 0.95, summary_text, transform=ax2.transAxes, fontsize=10,
              verticalalignment='top', fontfamily='monospace',
              bbox=dict(boxstyle='round', facecolor='lightgreen' if len(segment_violations) == 0 else 'lightyellow', alpha=0.8))
     
@@ -306,10 +269,12 @@ Next: Forward iteration will fix base to (0,0,0)
     print(f"\n" + "="*60)
     print("VISUAL ANALYSIS COMPLETE")
     print("="*60)
+    print(f"Robot: {num_segments} segments, {len(initial_chain.joints)} joints")
     print(f"Target: ({target_x}, {target_y}, {target_z})")
     print(f"Backward iteration: {'✓ SUCCESS' if distance_to_target < 0.1 else '✗ FAILED'}")
     print(f"Segment violations: {len(segment_violations)}")
     print(f"Base moved: {'✓ YES' if base_moved else '✗ NO'} ({joint_movements[0]:.1f} units)")
+    print(f"Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS} from C++ constants")
     
     if len(segment_violations) > 0:
         print("\n⚠️  SEGMENT LENGTH ISSUES DETECTED:")
@@ -337,7 +302,7 @@ def main():
     if success:
         print("\nVisualization shows:")
         print("- 3D view: Initial (blue) vs Final (red) chain positions")
-        print("- Segment lengths: Expected vs Actual length comparison")
+        print("- Dynamic joint count: Uses DEFAULT_ROBOT_SEGMENTS from C++ constants")
         print("- Joint movements: How much each joint moved")
         print("- Summary: Algorithm performance and issues")
         print("\nTry different targets:")

@@ -93,6 +93,7 @@ def test_fabrik_backward():
         import delta_robot.fabrik_initialization as fi
         import delta_robot.fabrik_backward as fb
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         print("Build both fabrik_initialization and fabrik_backward modules first.")
@@ -101,9 +102,12 @@ def test_fabrik_backward():
     print("Testing FABRIK Backward Iteration Module")
     print("=" * 60)
     
-    # Initialize robot chain
-    print("Initializing 3-segment robot chain...")
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    # ✅ USE THE SAME CONSTANT AS THE SYSTEM - NO MORE HARDCODING!
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    print(f"Using DEFAULT_ROBOT_SEGMENTS = {num_segments} from C++ constants")
+    print(f"Initializing {num_segments}-segment robot chain...")
+    
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     initial_chain = init_result.chain
     
     print(f"Initial chain: {len(initial_chain.joints)} joints, total reach: {init_result.total_reach:.1f}")
@@ -156,7 +160,7 @@ def test_fabrik_backward():
     print(f"Final end-effector: ({final_end_effector.x:.2f}, {final_end_effector.y:.2f}, {final_end_effector.z:.2f})")
     print(f"Distance to target: {final_distance_to_target:.4f}")
     
-    convergence_tolerance = 0.01  # FABRIK_TOLERANCE
+    convergence_tolerance = delta_robot.FABRIK_TOLERANCE  # ✅ USE CONSTANT!
     if final_distance_to_target <= convergence_tolerance:
         print(f"✓ Converged within tolerance ({convergence_tolerance})")
     else:
@@ -226,11 +230,13 @@ def test_fabrik_backward():
         print("✗ Some issues detected - check implementation")
     
     print(f"\nBackward iteration results:")
+    print(f"  - Using: {num_segments} segments ({len(initial_chain.joints)} joints)")
     print(f"  - Target: ({target_x}, {target_y}, {target_z})")
     print(f"  - Reachable: {is_reachable}")
     print(f"  - Iterations: {result.iterations_used}")
     print(f"  - Final accuracy: {final_distance_to_target:.4f}")
     print(f"  - Segment lengths preserved: {lengths_valid}")
+    print(f"  - Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS} from C++ constants")
     
     return True
 
