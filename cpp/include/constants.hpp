@@ -13,7 +13,7 @@ constexpr double MOTOR_LIMIT = 11.0;
 constexpr double WORKSPACE_CONE_ANGLE_RAD = M_PI / 6;  // 30 degrees
 
 // FABRIK Configuration Constants
-constexpr int DEFAULT_ROBOT_SEGMENTS = 5;                              // Default number of stacked segments
+constexpr int DEFAULT_ROBOT_SEGMENTS = 8;                              // Default number of stacked segments
 constexpr double SPHERICAL_JOINT_CONE_ANGLE_RAD = 2.0 * M_PI / 3.0;   // 120 degrees
 constexpr double SPHERICAL_JOINT_CONE_ANGLE_DEG = 120.0;               // 120 degrees
 

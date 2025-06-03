@@ -51,23 +51,24 @@ def print_segment(segment, index):
     print(f"  [{index}] Joint{segment.start_joint_index} → Joint{segment.end_joint_index}: length = {segment.length:.1f}")
 
 def test_fabrik_initialization():
-    # Parse command line arguments for number of segments
-    if len(sys.argv) == 2:
-        num_segments = parse_segments(sys.argv[1])
-        print(f"Using command line segments: {num_segments}")
-    else:
-        num_segments = 3
-        print("Using default segments: 3")
-        print("Usage: python3 test_fabrik_initialization.py <num_segments>")
-    
+    # Import modules first to get constants
     try:
         import delta_robot.fabrik_initialization as fi
-        # Also need delta_types for Vector3
         import delta_robot.delta_types as dt
+        import delta_robot
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         print("Build the fabrik_initialization module first.")
         return False
+    
+    # Parse command line arguments for number of segments - USE THE CONSTANT!
+    if len(sys.argv) == 2:
+        num_segments = parse_segments(sys.argv[1])
+        print(f"Using command line segments: {num_segments}")
+    else:
+        num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS  # ✅ USE THE CONSTANT!
+        print(f"Using default segments from C++ constant: {num_segments}")
+        print("Usage: python3 test_fabrik_initialization.py <num_segments>")
     
     print("Testing FABRIK Initialization Module")
     print("=" * 50)
@@ -131,10 +132,27 @@ def test_fabrik_initialization():
             print("  ✓ All verifications PASSED for 3-segment robot!")
         else:
             print("  ✗ Some verifications FAILED")
+    elif num_segments == 5:
+        # Add verification for 5-segment robot (DEFAULT_ROBOT_SEGMENTS)
+        print("Verifying 5-segment robot structure (using DEFAULT_ROBOT_SEGMENTS):")
+        
+        # Basic structure verification
+        expected_joints = 6  # 5 segments + 1 end effector
+        expected_segments = 6  # 6 connections
+        
+        if len(result.chain.joints) == expected_joints:
+            print(f"  ✓ Joint count: Expected {expected_joints}, Got {len(result.chain.joints)}")
+        else:
+            print(f"  ✗ Joint count: Expected {expected_joints}, Got {len(result.chain.joints)}")
+            
+        if len(result.chain.segments) == expected_segments:
+            print(f"  ✓ Segment count: Expected {expected_segments}, Got {len(result.chain.segments)}")
+        else:
+            print(f"  ✗ Segment count: Expected {expected_segments}, Got {len(result.chain.segments)}")
     
     # Verify segment length calculation
     print(f"\nVerifying segment length calculation:")
-    hypotenuse = 101.0 + 2*11.0 + 0  # MIN_HEIGHT + 2*MOTOR_LIMIT + prismatic(0)
+    hypotenuse = delta_robot.MIN_HEIGHT + 2*delta_robot.MOTOR_LIMIT + 0  # MIN_HEIGHT + 2*MOTOR_LIMIT + prismatic(0)
     calculated_segment_length = fi.FabrikInitialization.calculate_segment_length(hypotenuse, 0.0)
     expected_segment_length = hypotenuse / 2.0  # For straight up (angle = 0)
     
@@ -165,7 +183,7 @@ def test_fabrik_initialization():
     print(f"\nVerifying joint constraints:")
     spherical_joints = [j for j in result.chain.joints if hasattr(j.type, 'name') and 'SPHERICAL' in str(j.type) or 'SPHERICAL' in str(j.type)]
     
-    expected_constraint = math.radians(120)  # 120 degrees in radians
+    expected_constraint = delta_robot.SPHERICAL_JOINT_CONE_ANGLE_RAD  # Use constant from hpp!
     
     constraint_correct = True
     for i, joint in enumerate(result.chain.joints):
@@ -179,9 +197,19 @@ def test_fabrik_initialization():
     if constraint_correct:
         print("  ✓ All spherical joint constraints are correct")
     
+    print(f"\n=== CONSTANTS VERIFICATION ===")
+    print(f"Using constants from C++ headers:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}")
+    print(f"  MIN_HEIGHT = {delta_robot.MIN_HEIGHT}")
+    print(f"  MOTOR_LIMIT = {delta_robot.MOTOR_LIMIT}")
+    print(f"  WORKING_HEIGHT = {delta_robot.WORKING_HEIGHT}")
+    print(f"  SPHERICAL_JOINT_CONE_ANGLE_RAD = {delta_robot.SPHERICAL_JOINT_CONE_ANGLE_RAD:.4f} ({delta_robot.SPHERICAL_JOINT_CONE_ANGLE_DEG}°)")
+    print(f"  FABRIK_TOLERANCE = {delta_robot.FABRIK_TOLERANCE}")
+    
     print(f"\n=== SUMMARY ===")
     print(f"✓ FABRIK Initialization module working correctly!")
     print(f"✓ Chain structure created with {len(result.chain.joints)} joints and {len(result.chain.segments)} segments")
+    print(f"✓ Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS} from C++ constants")
     print(f"✓ Ready for FABRIK backward iteration module")
     
     print(f"\nChain structure for FABRIK solver:")
