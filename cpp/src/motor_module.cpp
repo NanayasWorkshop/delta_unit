@@ -16,120 +16,126 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
     FabrikSolutionResult fabrik_result = FabrikSolver::solve(init_result.chain, target_position, 
                                                            FABRIK_TOLERANCE, FABRIK_MAX_ITERATIONS);
     
-    // Step 3: Create motor result
     MotorResult motor_result(target_position, fabrik_result.converged, fabrik_result.final_error);
     
-    // Step 4: Extract segment data
-    extract_segment_data(fabrik_result, motor_result);
+    extract_original_segment_data(fabrik_result, motor_result);
     
-    // Step 5: Calculate kinematics for first segment (if available)
-    if (!motor_result.segment_positions.empty()) {
-        motor_result.first_segment_position = motor_result.segment_positions[0];
-        calculate_first_segment_kinematics(motor_result.first_segment_position, motor_result);
-        calculate_first_segment_orientation(motor_result.first_segment_position, motor_result);
+    if (motor_result.original_segment_positions.empty()) {
+        return motor_result; // No segments, nothing to process
+    }
+
+    // These are the positions that will be processed at the start of each level.
+    // Initially, they are the original global positions.
+    // In subsequent iterations, they are the transformed positions from the PREVIOUS level.
+    std::vector<Vector3> current_input_positions = motor_result.original_segment_positions;
+    std::vector<int> current_input_original_numbers = motor_result.original_segment_numbers;
+
+    while (!current_input_positions.empty()) {
+        LevelData current_level_data;
+
+        // The "base" for this level is the first segment in the current_input_positions.
+        Vector3 base_pos_for_this_level = current_input_positions[0];
         
-        // Step 6: Transform segments 2-8 to UVW-aligned coordinate system
-        transform_segments_to_uvw_aligned(motor_result);
-        
-        // Step 7: Calculate kinematics and orientation for second segment (if available)
-        if (!motor_result.transformed_segment_positions.empty()) {
-            calculate_second_segment_kinematics(motor_result);
-            calculate_second_segment_orientation(motor_result);
-            
-            // Step 8: Transform segments 3'-8' relative to S2' UVW coordinate system
-            transform_segments_to_second_level_uvw_aligned(motor_result);
-            
-            // Step 9: Calculate kinematics and orientation for third segment (if available)
-            if (!motor_result.second_level_transformed_segment_positions.empty()) {
-                calculate_third_segment_kinematics(motor_result);
-                calculate_third_segment_orientation(motor_result);
+        current_level_data.base_segment_position = base_pos_for_this_level;
+
+        // Calculate Kinematics for this base_pos_for_this_level
+        KinematicsResult kinematics_res = KinematicsModule::calculate(base_pos_for_this_level);
+        current_level_data.z_A = kinematics_res.fermat_data.z_A;
+        current_level_data.z_B = kinematics_res.fermat_data.z_B;
+        current_level_data.z_C = kinematics_res.fermat_data.z_C;
+        current_level_data.prismatic_joint = kinematics_res.joint_state_data.prismatic_joint;
+        current_level_data.roll_joint = rad_to_deg(kinematics_res.joint_state_data.roll_joint);
+        current_level_data.pitch_joint = rad_to_deg(kinematics_res.joint_state_data.pitch_joint);
+
+        // Calculate Orientation for this base_pos_for_this_level
+        OrientationResult orientation_res = OrientationModule::calculate(base_pos_for_this_level);
+        current_level_data.uvw_origin = orientation_res.final_frame.origin;
+        current_level_data.uvw_u_axis = orientation_res.final_frame.u_axis;
+        current_level_data.uvw_v_axis = orientation_res.final_frame.v_axis;
+        current_level_data.uvw_w_axis = orientation_res.final_frame.w_axis;
+
+        // Prepare for the next level's input
+        std::vector<Vector3> next_level_input_positions;
+        std::vector<int> next_level_input_original_numbers;
+
+        // If there are subsequent segments in current_input_positions (more than just the base), transform them
+        if (current_input_positions.size() > 1) {
+            double rotation_matrix[3][3];
+            create_uvw_to_xyz_rotation_matrix(current_level_data.uvw_u_axis,
+                                            current_level_data.uvw_v_axis,
+                                            current_level_data.uvw_w_axis,
+                                            rotation_matrix);
+
+            // Iterate from the second segment onwards in the current_input_positions
+            for (size_t i = 1; i < current_input_positions.size(); ++i) {
+                Vector3 segment_to_transform = current_input_positions[i];
+                int original_segment_number = current_input_original_numbers[i];
+
+                // Step 1: Translate so base_pos_for_this_level is at origin
+                Vector3 translated_pos = segment_to_transform - base_pos_for_this_level;
+                
+                // Step 2: Rotate to align this level's UVW with XYZ
+                Vector3 transformed_pos = apply_rotation_matrix(translated_pos, rotation_matrix);
+
+                // Store in the current level's "transformed_segment_*" lists
+                current_level_data.transformed_segment_original_numbers.push_back(original_segment_number);
+                current_level_data.transformed_segment_positions.push_back(transformed_pos);
+
+                // This transformed position and its original number become part of the input for the *next* level
+                next_level_input_positions.push_back(transformed_pos);
+                next_level_input_original_numbers.push_back(original_segment_number);
             }
         }
+        
+        motor_result.levels.push_back(current_level_data);
+
+        // The transformed segments from this level become the input for the next level.
+        // If next_level_input_positions is empty (because current_input_positions had only 1 element,
+        // or it was the last segment), the loop will terminate.
+        current_input_positions = next_level_input_positions;
+        current_input_original_numbers = next_level_input_original_numbers;
     }
     
     return motor_result;
 }
 
-void MotorModule::extract_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result) {
-    // Extract actual segment end-effector positions from FABRIK result
+void MotorModule::extract_original_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result) {
+    motor_result.original_segment_numbers.clear();
+    motor_result.original_segment_positions.clear();
     for (const auto& seg_data : fabrik_result.segment_end_effectors) {
-        motor_result.segment_numbers.push_back(seg_data.segment_number);
-        motor_result.segment_positions.push_back(seg_data.end_effector_position);
-    }
-}
-
-void MotorModule::calculate_first_segment_kinematics(const Vector3& first_segment_pos, MotorResult& motor_result) {
-    // Run kinematics module on first segment position
-    KinematicsResult kinematics_result = KinematicsModule::calculate(first_segment_pos);
-    
-    // Extract required data
-    motor_result.z_A = kinematics_result.fermat_data.z_A;
-    motor_result.z_B = kinematics_result.fermat_data.z_B;
-    motor_result.z_C = kinematics_result.fermat_data.z_C;
-    motor_result.prismatic_joint = kinematics_result.joint_state_data.prismatic_joint;
-    motor_result.roll_joint = rad_to_deg(kinematics_result.joint_state_data.roll_joint);   // Convert to degrees
-    motor_result.pitch_joint = rad_to_deg(kinematics_result.joint_state_data.pitch_joint); // Convert to degrees
-}
-
-void MotorModule::calculate_first_segment_orientation(const Vector3& first_segment_pos, MotorResult& motor_result) {
-    // Run orientation module on first segment position
-    OrientationResult orientation_result = OrientationModule::calculate(first_segment_pos);
-    
-    // Extract Final UVW frame (U''V''W'')
-    motor_result.uvw_origin = orientation_result.final_frame.origin;
-    motor_result.uvw_u_axis = orientation_result.final_frame.u_axis;
-    motor_result.uvw_v_axis = orientation_result.final_frame.v_axis;
-    motor_result.uvw_w_axis = orientation_result.final_frame.w_axis;
-}
-
-void MotorModule::transform_segments_to_uvw_aligned(MotorResult& motor_result) {
-    // Clear any existing transformed data
-    motor_result.transformed_segment_numbers.clear();
-    motor_result.transformed_segment_positions.clear();
-    
-    // Need at least 2 segments (first segment + at least one more)
-    if (motor_result.segment_positions.size() < 2) {
-        return;
-    }
-    
-    // Get first segment position for translation
-    Vector3 first_segment_pos = motor_result.first_segment_position;
-    
-    // Create rotation matrix to align UVW with XYZ
-    double rotation_matrix[3][3];
-    create_uvw_to_xyz_rotation_matrix(motor_result.uvw_u_axis, 
-                                    motor_result.uvw_v_axis, 
-                                    motor_result.uvw_w_axis, 
-                                    rotation_matrix);
-    
-    // Transform segments 2 through N (skip segment 1 at index 0)
-    for (size_t i = 1; i < motor_result.segment_positions.size(); ++i) {
-        // Step 1: Translate so first segment is at origin
-        Vector3 translated_pos = motor_result.segment_positions[i] - first_segment_pos;
-        
-        // Step 2: Rotate to align UVW with XYZ
-        Vector3 transformed_pos = apply_rotation_matrix(translated_pos, rotation_matrix);
-        
-        // Store transformed data
-        motor_result.transformed_segment_numbers.push_back(motor_result.segment_numbers[i]);
-        motor_result.transformed_segment_positions.push_back(transformed_pos);
+        motor_result.original_segment_numbers.push_back(seg_data.segment_number);
+        motor_result.original_segment_positions.push_back(seg_data.end_effector_position);
     }
 }
 
 void MotorModule::create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, double rotation_matrix[3][3]) {
-    // Create the rotation matrix from UVW to XYZ
-    // The columns of this matrix are the UVW axes expressed in XYZ coordinates
-    double uvw_to_xyz[3][3] = {
-        {u_axis.x, v_axis.x, w_axis.x},
-        {u_axis.y, v_axis.y, w_axis.y},
-        {u_axis.z, v_axis.z, w_axis.z}
-    };
+    // Ensure we align U+ with X+, V+ with Y+, W+ with Z+
+    // We need to check the dot products and flip axes if necessary
     
-    // We want the inverse transformation (to align UVW with XYZ)
-    // Since the matrix is orthogonal, inverse = transpose
-    rotation_matrix[0][0] = uvw_to_xyz[0][0]; rotation_matrix[0][1] = uvw_to_xyz[1][0]; rotation_matrix[0][2] = uvw_to_xyz[2][0];
-    rotation_matrix[1][0] = uvw_to_xyz[0][1]; rotation_matrix[1][1] = uvw_to_xyz[1][1]; rotation_matrix[1][2] = uvw_to_xyz[2][1];
-    rotation_matrix[2][0] = uvw_to_xyz[0][2]; rotation_matrix[2][1] = uvw_to_xyz[1][2]; rotation_matrix[2][2] = uvw_to_xyz[2][2];
+    Vector3 aligned_u = u_axis;
+    Vector3 aligned_v = v_axis;
+    Vector3 aligned_w = w_axis;
+    
+    // Check if U-axis is pointing in the negative X direction
+    if (u_axis.x < 0) {
+        aligned_u = Vector3(-u_axis.x, -u_axis.y, -u_axis.z);
+    }
+    
+    // Check if V-axis is pointing in the negative Y direction
+    if (v_axis.y < 0) {
+        aligned_v = Vector3(-v_axis.x, -v_axis.y, -v_axis.z);
+    }
+    
+    // Check if W-axis is pointing in the negative Z direction
+    if (w_axis.z < 0) {
+        aligned_w = Vector3(-w_axis.x, -w_axis.y, -w_axis.z);
+    }
+    
+    // Create rotation matrix with aligned axes
+    // The rows of this matrix are the aligned U, V, W vectors
+    rotation_matrix[0][0] = aligned_u.x; rotation_matrix[0][1] = aligned_u.y; rotation_matrix[0][2] = aligned_u.z;
+    rotation_matrix[1][0] = aligned_v.x; rotation_matrix[1][1] = aligned_v.y; rotation_matrix[1][2] = aligned_v.z;
+    rotation_matrix[2][0] = aligned_w.x; rotation_matrix[2][1] = aligned_w.y; rotation_matrix[2][2] = aligned_w.z;
 }
 
 Vector3 MotorModule::apply_rotation_matrix(const Vector3& vector, const double rotation_matrix[3][3]) {
@@ -138,118 +144,6 @@ Vector3 MotorModule::apply_rotation_matrix(const Vector3& vector, const double r
         rotation_matrix[1][0] * vector.x + rotation_matrix[1][1] * vector.y + rotation_matrix[1][2] * vector.z,
         rotation_matrix[2][0] * vector.x + rotation_matrix[2][1] * vector.y + rotation_matrix[2][2] * vector.z
     );
-}
-
-void MotorModule::calculate_second_segment_kinematics(MotorResult& motor_result) {
-    // Use the first transformed segment (which is segment 2')
-    if (motor_result.transformed_segment_positions.empty()) {
-        return;
-    }
-    
-    Vector3 second_segment_pos = motor_result.transformed_segment_positions[0];
-    motor_result.second_segment_position = second_segment_pos;
-    
-    // Run kinematics module on second segment position
-    KinematicsResult kinematics_result = KinematicsModule::calculate(second_segment_pos);
-    
-    // Extract required data
-    motor_result.second_z_A = kinematics_result.fermat_data.z_A;
-    motor_result.second_z_B = kinematics_result.fermat_data.z_B;
-    motor_result.second_z_C = kinematics_result.fermat_data.z_C;
-    motor_result.second_prismatic_joint = kinematics_result.joint_state_data.prismatic_joint;
-    motor_result.second_roll_joint = rad_to_deg(kinematics_result.joint_state_data.roll_joint);   // Convert to degrees
-    motor_result.second_pitch_joint = rad_to_deg(kinematics_result.joint_state_data.pitch_joint); // Convert to degrees
-}
-
-void MotorModule::calculate_second_segment_orientation(MotorResult& motor_result) {
-    // Use the first transformed segment (which is segment 2')
-    if (motor_result.transformed_segment_positions.empty()) {
-        return;
-    }
-    
-    Vector3 second_segment_pos = motor_result.transformed_segment_positions[0];
-    
-    // Run orientation module on second segment position
-    OrientationResult orientation_result = OrientationModule::calculate(second_segment_pos);
-    
-    // Extract Final UVW frame (U''V''W'') for second segment
-    motor_result.second_uvw_origin = orientation_result.final_frame.origin;
-    motor_result.second_uvw_u_axis = orientation_result.final_frame.u_axis;
-    motor_result.second_uvw_v_axis = orientation_result.final_frame.v_axis;
-    motor_result.second_uvw_w_axis = orientation_result.final_frame.w_axis;
-}
-
-void MotorModule::transform_segments_to_second_level_uvw_aligned(MotorResult& motor_result) {
-    // Clear any existing second-level transformed data
-    motor_result.second_level_transformed_segment_numbers.clear();
-    motor_result.second_level_transformed_segment_positions.clear();
-    
-    // Need at least 2 transformed segments (S2' + at least one more)
-    if (motor_result.transformed_segment_positions.size() < 2) {
-        return;
-    }
-    
-    // Get second segment position (S2') for translation
-    Vector3 second_segment_pos = motor_result.second_segment_position;
-    
-    // Create rotation matrix to align S2' UVW with XYZ
-    double rotation_matrix[3][3];
-    create_uvw_to_xyz_rotation_matrix(motor_result.second_uvw_u_axis, 
-                                    motor_result.second_uvw_v_axis, 
-                                    motor_result.second_uvw_w_axis, 
-                                    rotation_matrix);
-    
-    // Transform segments 3' through N' (skip segment 2' at index 0)
-    for (size_t i = 1; i < motor_result.transformed_segment_positions.size(); ++i) {
-        // Step 1: Translate so second segment (S2') is at origin
-        Vector3 translated_pos = motor_result.transformed_segment_positions[i] - second_segment_pos;
-        
-        // Step 2: Rotate to align S2' UVW with XYZ
-        Vector3 transformed_pos = apply_rotation_matrix(translated_pos, rotation_matrix);
-        
-        // Store second-level transformed data
-        motor_result.second_level_transformed_segment_numbers.push_back(motor_result.transformed_segment_numbers[i]);
-        motor_result.second_level_transformed_segment_positions.push_back(transformed_pos);
-    }
-}
-
-void MotorModule::calculate_third_segment_kinematics(MotorResult& motor_result) {
-    // Use the first second-level transformed segment (which is segment 3'')
-    if (motor_result.second_level_transformed_segment_positions.empty()) {
-        return;
-    }
-    
-    Vector3 third_segment_pos = motor_result.second_level_transformed_segment_positions[0];
-    motor_result.third_segment_position = third_segment_pos;
-    
-    // Run kinematics module on third segment position
-    KinematicsResult kinematics_result = KinematicsModule::calculate(third_segment_pos);
-    
-    // Extract required data
-    motor_result.third_z_A = kinematics_result.fermat_data.z_A;
-    motor_result.third_z_B = kinematics_result.fermat_data.z_B;
-    motor_result.third_z_C = kinematics_result.fermat_data.z_C;
-    motor_result.third_prismatic_joint = kinematics_result.joint_state_data.prismatic_joint;
-    motor_result.third_roll_joint = rad_to_deg(kinematics_result.joint_state_data.roll_joint);   // Convert to degrees
-    motor_result.third_pitch_joint = rad_to_deg(kinematics_result.joint_state_data.pitch_joint); // Convert to degrees
-}
-
-void MotorModule::calculate_third_segment_orientation(MotorResult& motor_result) {
-    // Use the first second-level transformed segment (which is segment 3'')
-    if (motor_result.second_level_transformed_segment_positions.empty()) {
-        return;
-    }
-    
-    Vector3 third_segment_pos = motor_result.second_level_transformed_segment_positions[0];
-    
-    // Run orientation module on third segment position
-    OrientationResult orientation_result = OrientationModule::calculate(third_segment_pos);
-    
-    // Extract Final UVW frame (U''V''W'') for third segment
-    motor_result.third_uvw_origin = orientation_result.final_frame.origin;
-    motor_result.third_uvw_u_axis = orientation_result.final_frame.u_axis;
-    motor_result.third_uvw_v_axis = orientation_result.final_frame.v_axis;
-    motor_result.third_uvw_w_axis = orientation_result.final_frame.w_axis;
 }
 
 } // namespace delta
