@@ -107,33 +107,7 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=['-O2'],
     ),
-    # ENHANCED! Joint State Motor module - Target to Motor Positions with Sequential Calculation
-    Pybind11Extension(
-        "delta_robot.joint_state_motor",
-        [
-            # Primary sources
-            "cpp/src/joint_state_motor_bindings.cpp", 
-            "cpp/src/joint_state_motor.cpp",
-            # FABRIK solver dependencies (calls FABRIK internally)
-            "cpp/src/fabrik_solver.cpp",
-            "cpp/src/fabrik_backward.cpp",
-            "cpp/src/fabrik_forward.cpp",
-            "cpp/src/fabrik_initialization.cpp",
-            # Kinematics chain (required by FABRIK)
-            "cpp/src/kinematics_module.cpp",
-            "cpp/src/fermat_module.cpp", 
-            "cpp/src/joint_state.cpp",
-            # NEW! Orientation module (required by enhanced joint_state_motor.cpp)
-            "cpp/src/orientation_module.cpp",
-            # Base math utilities
-            "cpp/src/math_utils.cpp"
-        ],
-        include_dirs=["cpp/include", pybind11.get_include()],
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=['-O2'],
-    ),
-]
+    ]
 
 setup(
     name="delta_unit",
