@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Visual test for the FABRIK Backward module - 3D visualization of chain movement during backward iteration
+Visual test for the FABRIK Backward module - UPDATED with constants
 """
 
 import sys
@@ -108,9 +108,16 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
         print(f"Error: delta_robot package not found: {e}")
         return False
     
-    # ✅ USE THE SAME CONSTANT AS THE SYSTEM - NO MORE HARDCODING!
+    # ✅ USE CONSTANTS FROM C++ HEADERS
     num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
-    print(f"Using DEFAULT_ROBOT_SEGMENTS = {num_segments} from C++ constants")
+    tolerance = delta_robot.FABRIK_TOLERANCE
+    max_iterations = delta_robot.FABRIK_MAX_ITERATIONS
+    spherical_angle_deg = delta_robot.SPHERICAL_JOINT_CONE_ANGLE_DEG
+    
+    print(f"Using C++ constants:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+    print(f"  FABRIK_TOLERANCE = {tolerance}")
+    print(f"  SPHERICAL_JOINT_CONE_ANGLE = {spherical_angle_deg}°")
     
     # Initialize robot chain
     init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
@@ -121,8 +128,13 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
     # Create target position
     target_position = dt.Vector3(target_x, target_y, target_z)
     
-    # Perform backward iteration
-    result = fb.FabrikBackward.iterate_to_target(initial_chain, target_position)
+    # Perform backward iteration with constants
+    result = fb.FabrikBackward.iterate_to_target(
+        initial_chain, 
+        target_position,
+        tolerance=tolerance,
+        max_iterations=max_iterations
+    )
     final_chain = result.updated_chain
     
     # Setup figure with larger 3D view
@@ -155,7 +167,7 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
     ax1.set_xlabel('X')
     ax1.set_ylabel('Y')
     ax1.set_zlabel('Z')
-    ax1.set_title(f'FABRIK Backward Iteration: {num_segments}-Segment Robot\nBefore vs After')
+    ax1.set_title(f'FABRIK Backward Iteration: {num_segments}-Segment Robot\nBefore vs After (Fixed Algorithm)')
     ax1.legend()
     
     # Set equal aspect ratio
@@ -207,10 +219,14 @@ def visualize_fabrik_backward(target_x, target_y, target_z):
     base_moved = joint_movements[0] > 0.1
     
     summary_text = f"""
-FABRIK BACKWARD ITERATION ANALYSIS
+FABRIK BACKWARD ITERATION ANALYSIS (FIXED ALGORITHM)
 
 Robot Configuration: {num_segments} segments, {len(initial_chain.joints)} joints
-Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}
+Using C++ Constants:
+  DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}
+  FABRIK_TOLERANCE = {delta_robot.FABRIK_TOLERANCE}
+  FABRIK_MAX_ITERATIONS = {delta_robot.FABRIK_MAX_ITERATIONS}
+  SPHERICAL_JOINT_CONE_ANGLE = {delta_robot.SPHERICAL_JOINT_CONE_ANGLE_DEG}°
 
 Target: ({target_x}, {target_y}, {target_z})
 Target Reachable: {'✓ YES' if reachable else '✗ NO'}
@@ -218,10 +234,10 @@ Distance from Base: {math.sqrt(target_x**2 + target_y**2 + target_z**2):.1f}
 Max Reach: {init_result.total_reach:.1f}
 
 RESULTS:
-Iterations: {result.iterations_used}
+Iterations: {result.iterations_used}/{max_iterations}
 Final End-Effector: ({final_end_effector.x:.1f}, {final_end_effector.y:.1f}, {final_end_effector.z:.1f})
 Distance to Target: {distance_to_target:.4f}
-Converged: {'✓ YES' if distance_to_target < 0.1 else '✗ NO'}
+Converged: {'✓ YES' if distance_to_target < tolerance else '✗ NO'} (tolerance: {tolerance})
 
 BASE MOVEMENT:
 Base Moved: {'✓ YES' if base_moved else '✗ NO'} ({joint_movements[0]:.1f} units)
@@ -249,11 +265,17 @@ JOINT MOVEMENTS (showing first 10):
     
     summary_text += f"""
 ALGORITHM STATUS:
-✓ Backward iteration working
+✓ Backward iteration FIXED (direction projection)
 {'✓' if base_moved else '✗'} Base movement enabled
-{'✓' if distance_to_target < 0.1 else '✗'} Target reached
+{'✓' if distance_to_target < tolerance else '✗'} Target reached within tolerance
 {'✓' if len(segment_violations) == 0 else '✗'} Segment lengths preserved
-✓ Using {num_segments} segments dynamically
+✓ Using {num_segments} segments from C++ constants
+
+ALGORITHM IMPROVEMENTS:
+- Fixed cone constraint projection (direction vs point)
+- Better fallback strategies when guidance fails
+- Maintains goal of minimizing distance to original positions
+- Uses actual C++ constants instead of hardcoded values
 
 Next: Forward iteration will fix base to (0,0,0)
 """
@@ -271,10 +293,13 @@ Next: Forward iteration will fix base to (0,0,0)
     print("="*60)
     print(f"Robot: {num_segments} segments, {len(initial_chain.joints)} joints")
     print(f"Target: ({target_x}, {target_y}, {target_z})")
-    print(f"Backward iteration: {'✓ SUCCESS' if distance_to_target < 0.1 else '✗ FAILED'}")
+    print(f"Backward iteration: {'✓ SUCCESS' if distance_to_target < tolerance else '✗ FAILED'}")
     print(f"Segment violations: {len(segment_violations)}")
     print(f"Base moved: {'✓ YES' if base_moved else '✗ NO'} ({joint_movements[0]:.1f} units)")
-    print(f"Using DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS} from C++ constants")
+    print(f"Using constants from C++ headers:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}")
+    print(f"  FABRIK_TOLERANCE = {delta_robot.FABRIK_TOLERANCE}")
+    print(f"  SPHERICAL_JOINT_CONE_ANGLE = {delta_robot.SPHERICAL_JOINT_CONE_ANGLE_DEG}°")
     
     if len(segment_violations) > 0:
         print("\n⚠️  SEGMENT LENGTH ISSUES DETECTED:")
@@ -282,7 +307,7 @@ Next: Forward iteration will fix base to (0,0,0)
         print("Expected: All segments should maintain their original lengths")
     else:
         print("\n✓ SEGMENT LENGTHS PRESERVED CORRECTLY")
-        print("Backward iteration is working as expected!")
+        print("Fixed backward iteration is working as expected!")
     
     return True
 
@@ -296,15 +321,16 @@ def main():
         print("Using default target: (100, 100, 300)")
         print("Usage: python3 test_fabrik_backward_visual.py x,y,z")
     
-    print("Creating FABRIK Backward Iteration visualization...")
+    print("Creating FABRIK Backward Iteration visualization with FIXED algorithm...")
     success = visualize_fabrik_backward(target_x, target_y, target_z)
     
     if success:
         print("\nVisualization shows:")
         print("- 3D view: Initial (blue) vs Final (red) chain positions")
+        print("- FIXED algorithm: Uses direction projection instead of point projection")
         print("- Dynamic joint count: Uses DEFAULT_ROBOT_SEGMENTS from C++ constants")
         print("- Joint movements: How much each joint moved")
-        print("- Summary: Algorithm performance and issues")
+        print("- Summary: Algorithm performance and improvements")
         print("\nTry different targets:")
         print("  python3 test_fabrik_backward_visual.py 0,0,400   # Straight up")
         print("  python3 test_fabrik_backward_visual.py 200,0,200 # Far sideways")

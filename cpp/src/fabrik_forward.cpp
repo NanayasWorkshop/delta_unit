@@ -5,43 +5,48 @@
 
 namespace delta {
 
-// Static helper function for cone surface projection (same as backward)
-static Vector3 project_point_to_cone_surface_internal(
-    const Vector3& point_P,
-    const Vector3& apex_A,
-    const Vector3& cone_axis_v_normalized, // Normalized axis, points from apex towards cone opening
-    double half_angle_alpha_rad) {
-
-    Vector3 AP = point_P - apex_A;
-    double dist_AP_along_axis = AP.dot(cone_axis_v_normalized);
-
-    // If point is at or "behind" the apex (relative to cone direction),
-    // the nearest point on the cone surface is the apex itself.
-    if (dist_AP_along_axis <= EPSILON_MATH) {
-        return apex_A;
+// Helper function for projecting a direction onto cone constraints (same as backward)
+static Vector3 project_direction_onto_cone(const Vector3& desired_direction,
+                                          const Vector3& cone_axis_normalized,
+                                          double cone_half_angle_rad) {
+    
+    if (desired_direction.norm() < EPSILON_MATH) {
+        return desired_direction;
     }
-
-    // Point on the cone axis that is "level" with P's projection onto the axis
-    Vector3 P_on_axis = apex_A + cone_axis_v_normalized * dist_AP_along_axis;
-
-    Vector3 vec_axis_to_P = point_P - P_on_axis;
-    double dist_P_to_axis = vec_axis_to_P.norm();
-
-    // Radius of the cone at the height of P_on_axis
-    double cone_radius_at_height = dist_AP_along_axis * std::tan(half_angle_alpha_rad);
-
-    // If P is on the axis (and past the apex, handled by dist_AP_along_axis > EPSILON_MATH),
-    // it's considered on the cone degenerately.
-    if (dist_P_to_axis < EPSILON_MATH) {
-        return P_on_axis; // Already on the center line of the cone
+    
+    Vector3 dir_normalized = desired_direction.normalized();
+    
+    // Calculate angle between desired direction and cone axis
+    double dot_product = dir_normalized.dot(cone_axis_normalized);
+    double angle_to_axis = std::acos(std::max(-1.0, std::min(1.0, dot_product)));
+    
+    // If direction is within cone, use it directly
+    if (angle_to_axis <= cone_half_angle_rad) {
+        return desired_direction;
     }
-
-    // If P is outside (radially), project it onto the surface by scaling its radial component.
-    // The calling function should have already determined if P is angularly outside.
-    // This function just finds the point on the surface along the radial direction from P to the axis.
-    Vector3 dir_axis_to_P_component_normalized = vec_axis_to_P.normalized();
-    Vector3 projected_point = P_on_axis + dir_axis_to_P_component_normalized * cone_radius_at_height;
-    return projected_point;
+    
+    // Project direction onto cone surface
+    // Find component along cone axis
+    Vector3 along_axis = cone_axis_normalized * dot_product;
+    
+    // Find perpendicular component
+    Vector3 perpendicular = dir_normalized - along_axis;
+    
+    if (perpendicular.norm() < EPSILON_MATH) {
+        // Direction is exactly along cone axis - use it
+        return desired_direction;
+    }
+    
+    // Create new direction on cone surface
+    Vector3 perp_normalized = perpendicular.normalized();
+    double cos_half_angle = std::cos(cone_half_angle_rad);
+    double sin_half_angle = std::sin(cone_half_angle_rad);
+    
+    // New direction on cone surface closest to desired direction
+    Vector3 projected_normalized = cone_axis_normalized * cos_half_angle + perp_normalized * sin_half_angle;
+    
+    // Scale back to original magnitude
+    return projected_normalized * desired_direction.norm();
 }
 
 FabrikForwardResult FabrikForward::iterate_from_base(const FabrikChain& backward_result_chain,
@@ -107,7 +112,6 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
         const Vector3& J_current_original = chain_state_before_pass.joints[i].position;
 
         // Segment J_i-1 -- J_i and its defined length
-        // Note: Segments are indexed such that segment[i-1] connects joint[i-1] and joint[i]
         double segment_length = target_segment_lengths[i - 1];
 
         if (segment_length < EPSILON_MATH) {
@@ -115,8 +119,6 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
             updated_chain.joints[i].position = J_prev_prime;
             continue;
         }
-
-        Vector3 guidance_point_for_direction = J_current_original;
 
         // SPECIAL CASE: First joint after base (J_1) must always go straight up in Z+
         if (i == 1) {
@@ -126,95 +128,56 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
             continue; // Skip cone constraint logic for first joint
         }
 
-        // Cone Constraint Logic:
-        // The constraint is at joint J_i-1 (which is J_prev_prime).
-        // The cone's apex is at J_i-1'.
-        // The cone opens along the direction J_i-2' -> J_i-1'.
-        // We check if J_i_orig is outside this cone.
-        // This check is only relevant if:
-        //   a) Joint J_i-1 has a cone constraint (e.g., SPHERICAL_120).
-        //   b) Joint J_i-2 exists (i.e., i - 2 >= 0).
+        // Calculate desired direction: from J_prev_prime toward J_current_original
+        Vector3 desired_direction = J_current_original - J_prev_prime;
+        
+        // Apply cone constraint if applicable
         bool can_apply_cone_constraint = (i - 2 >= 0) &&
                                          (updated_chain.joints[i - 1].type == JointType::SPHERICAL_120);
 
-        if (can_apply_cone_constraint) {
+        Vector3 final_direction = desired_direction;
+
+        if (can_apply_cone_constraint && desired_direction.norm() > EPSILON_MATH) {
             const Vector3& J_apex_cone = J_prev_prime;                                    // This is J_i-1'
             const Vector3& J_cone_direction_ref_point = updated_chain.joints[i - 2].position; // This is J_i-2'
 
             // Cone axis points from J_cone_direction_ref_point towards J_apex_cone
-            // (e.g., from J_i-2' towards J_i-1')
             Vector3 cone_axis_vec = J_apex_cone - J_cone_direction_ref_point;
 
-            if (cone_axis_vec.norm() > EPSILON_MATH) { // Ensure cone axis is well-defined
+            if (cone_axis_vec.norm() > EPSILON_MATH) {
                 Vector3 cone_axis_normalized = cone_axis_vec.normalized();
-
-                // SPHERICAL_JOINT_CONE_ANGLE_RAD should be the *full* angle (e.g., 120 degrees)
                 double cone_half_angle_rad = SPHERICAL_JOINT_CONE_ANGLE_RAD / 2.0;
 
-                // Vector from cone apex (J_i-1') to the point to check (J_i_orig)
-                Vector3 vec_apex_to_J_curr_orig = J_current_original - J_apex_cone;
-
-                if (vec_apex_to_J_curr_orig.norm() > EPSILON_MATH) {
-                    Vector3 dir_apex_to_J_curr_orig_normalized = vec_apex_to_J_curr_orig.normalized();
-
-                    // Check if J_current_original is outside the cone:
-                    // If angle(vec_apex_to_J_curr_orig, cone_axis_normalized) > cone_half_angle_rad
-                    // then dot(dir_apex_to_J_curr_orig_normalized, cone_axis_normalized) < cos(cone_half_angle_rad)
-                    double dot_product = dir_apex_to_J_curr_orig_normalized.dot(cone_axis_normalized);
-
-                    if (dot_product < std::cos(cone_half_angle_rad) - EPSILON_MATH) { // J_i_orig is outside cone
-                        // Project J_i_orig to the nearest point on the cone surface
-                        guidance_point_for_direction = project_point_to_cone_surface_internal(
-                            J_current_original, J_apex_cone, cone_axis_normalized, cone_half_angle_rad
-                        );
-                    }
-                    // Else: J_i_orig is inside or on the cone, use J_i_orig as guidance.
-                }
-                // Else: J_i_orig is at the cone apex (J_i-1'), effectively on the cone. Use J_i_orig.
+                // ✅ FIX: Project the DIRECTION onto cone constraints (not the point!)
+                final_direction = project_direction_onto_cone(
+                    desired_direction, 
+                    cone_axis_normalized, 
+                    cone_half_angle_rad
+                );
             }
-            // Else: Cone axis is zero length (J_i-1' and J_i-2' are coincident).
-            // Cone is ill-defined. Use J_i_orig as guidance point.
         }
 
-        // Place J_i' (updated_chain.joints[i].position):
-        // On the line from J_i-1' (J_prev_prime) towards guidance_point_for_direction,
-        // at 'segment_length' distance from J_i-1'.
-
-        Vector3 direction_for_placement_vec = guidance_point_for_direction - J_prev_prime;
-        Vector3 final_placement_direction;
-
-        if (direction_for_placement_vec.norm() < EPSILON_MATH) {
-            // guidance_point_for_direction is coincident with J_prev_prime.
-            // This can happen if J_i_orig (or its projection) landed exactly on J_i-1'.
-            // The "dotted line" is a point. We need a fallback direction.
-            // If a cone was active, use the cone's axis.
-            if (can_apply_cone_constraint) { // Check again if cone logic was attempted
-                const Vector3& J_apex_cone = J_prev_prime;
-                const Vector3& J_cone_direction_ref_point = updated_chain.joints[i - 2].position;
-                Vector3 cone_axis_vec = J_apex_cone - J_cone_direction_ref_point;
-                if (cone_axis_vec.norm() > EPSILON_MATH) {
-                    final_placement_direction = cone_axis_vec.normalized();
-                } else {
-                    // Fallback if cone axis also degenerate: point from J_i-1' towards where J_i+1_orig was
-                     if (i + 1 < num_joints && (chain_state_before_pass.joints[i+1].position - J_prev_prime).norm() > EPSILON_MATH) {
-                        final_placement_direction = (chain_state_before_pass.joints[i+1].position - J_prev_prime).normalized();
-                    } else {
-                        final_placement_direction = Vector3(0, 0, 1); // Ultimate fallback (e.g., along positive Z)
-                    }
-                }
-            } else { // No cone constraint was applicable, and J_i_orig is at J_i-1'.
-                     // Point from J_i-1' towards where J_i+1_orig was
-                if (i + 1 < num_joints && (chain_state_before_pass.joints[i+1].position - J_prev_prime).norm() > EPSILON_MATH) {
-                    final_placement_direction = (chain_state_before_pass.joints[i+1].position - J_prev_prime).normalized();
-                } else {
-                    final_placement_direction = Vector3(0, 0, 1); // Ultimate fallback
-                }
-            }
+        // Place J_i' at segment_length distance from J_i-1' in the final direction
+        if (final_direction.norm() > EPSILON_MATH) {
+            Vector3 final_placement_direction = final_direction.normalized();
+            updated_chain.joints[i].position = J_prev_prime + final_placement_direction * segment_length;
         } else {
-            final_placement_direction = direction_for_placement_vec.normalized();
+            // Fallback when direction is zero or invalid
+            Vector3 fallback_direction;
+            
+            if (i + 1 < num_joints) {
+                // Point toward next joint's original position
+                fallback_direction = chain_state_before_pass.joints[i+1].position - J_prev_prime;
+                if (fallback_direction.norm() < EPSILON_MATH) {
+                    fallback_direction = Vector3(0, 0, 1); // Ultimate fallback
+                }
+            } else {
+                // Last joint - point upward
+                fallback_direction = Vector3(0, 0, 1);
+            }
+            
+            updated_chain.joints[i].position = J_prev_prime + fallback_direction.normalized() * segment_length;
         }
-
-        updated_chain.joints[i].position = J_prev_prime + final_placement_direction * segment_length;
     }
 
     return updated_chain;

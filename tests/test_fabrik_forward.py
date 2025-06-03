@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test the FABRIK Forward iteration module interface
+Test the FABRIK Forward iteration module interface - UPDATED with constants
 """
 
 import sys
@@ -66,6 +66,7 @@ def test_fabrik_forward():
         import delta_robot.fabrik_backward as fb
         import delta_robot.fabrik_forward as ff
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         print("Build fabrik_initialization, fabrik_backward, and fabrik_forward modules first.")
@@ -74,9 +75,25 @@ def test_fabrik_forward():
     print("Testing FABRIK Forward Iteration Module")
     print("=" * 80)
     
+    # ✅ USE CONSTANTS FROM C++ HEADERS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    tolerance = delta_robot.FABRIK_TOLERANCE
+    max_iterations = delta_robot.FABRIK_MAX_ITERATIONS
+    min_height = delta_robot.MIN_HEIGHT
+    motor_limit = delta_robot.MOTOR_LIMIT
+    working_height = delta_robot.WORKING_HEIGHT
+    
+    print(f"Using C++ constants:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+    print(f"  FABRIK_TOLERANCE = {tolerance}")
+    print(f"  FABRIK_MAX_ITERATIONS = {max_iterations}")
+    print(f"  MIN_HEIGHT = {min_height}")
+    print(f"  MOTOR_LIMIT = {motor_limit}")
+    print(f"  WORKING_HEIGHT = {working_height}")
+    
     # Initialize robot chain
-    print("Initializing 3-segment robot chain...")
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    print(f"Initializing {num_segments}-segment robot chain...")
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     initial_chain = init_result.chain
     
     print(f"Initial chain: {len(initial_chain.joints)} joints, total reach: {init_result.total_reach:.1f}")
@@ -93,10 +110,15 @@ def test_fabrik_forward():
     print(f"\n=== BACKWARD ITERATION ===")
     print("Running backward iteration to target...")
     
-    # Perform backward iteration
-    backward_result = fb.FabrikBackward.iterate_to_target(initial_chain, target_position)
+    # Perform backward iteration with constants
+    backward_result = fb.FabrikBackward.iterate_to_target(
+        initial_chain, 
+        target_position,
+        tolerance=tolerance,
+        max_iterations=max_iterations
+    )
     
-    print(f"Backward iterations: {backward_result.iterations_used}")
+    print(f"Backward iterations: {backward_result.iterations_used}/{max_iterations}")
     print(f"Backward converged: {'✓ YES' if backward_result.target_reachable else '✗ NO'}")
     
     # Show backward result
@@ -112,10 +134,14 @@ def test_fabrik_forward():
     print(f"Original segment lengths: {[seg.length for seg in initial_chain.segments]}")
     print(f"Recalculated lengths: {[f'{length:.2f}' for length in new_lengths]}")
     
-    # Perform forward iteration
-    forward_result = ff.FabrikForward.iterate_from_base(backward_result.updated_chain)
+    # Perform forward iteration with constants
+    forward_result = ff.FabrikForward.iterate_from_base(
+        backward_result.updated_chain,
+        tolerance=tolerance,
+        max_iterations=max_iterations
+    )
     
-    print(f"Forward iterations: {forward_result.iterations_used}")
+    print(f"Forward iterations: {forward_result.iterations_used}/{max_iterations}")
     print(f"Base at origin: {'✓ YES' if forward_result.constraints_satisfied else '✗ NO'}")
     print(f"Base position: ({forward_result.base_position.x:.3f}, {forward_result.base_position.y:.3f}, {forward_result.base_position.z:.3f})")
     
@@ -157,7 +183,6 @@ def test_fabrik_forward():
     # Test utility functions
     print(f"\n=== UTILITY FUNCTION TESTS ===")
     
-    num_segments = initial_chain.num_robot_segments
     pairs_count = ff.get_direction_pairs_count(num_segments)
     indices = ff.get_fabrik_segment_indices(num_segments)
     
@@ -165,12 +190,19 @@ def test_fabrik_forward():
     print(f"Direction pairs needed: {pairs_count}")
     print(f"FABRIK segment indices: {indices}")
     
-    # Test H→G calculation
+    # Test H→G calculation with constants
     test_prismatic = 10.0
     h_to_g_dist = ff.calculate_h_to_g_distance(test_prismatic)
-    expected_h_to_g = 101.0 + 2*11.0 + test_prismatic  # MIN_HEIGHT + 2*MOTOR_LIMIT + prismatic
+    expected_h_to_g = min_height + 2*motor_limit + test_prismatic  # Using constants
     
     print(f"H→G distance test: prismatic={test_prismatic} → h_to_g={h_to_g_dist:.1f} (expected: {expected_h_to_g:.1f})")
+    
+    # Verify constants are correctly used
+    print(f"\n=== CONSTANTS VERIFICATION ===")
+    print(f"H→G formula: MIN_HEIGHT + 2*MOTOR_LIMIT + prismatic")
+    print(f"             {min_height} + 2*{motor_limit} + {test_prismatic} = {expected_h_to_g}")
+    print(f"Calculated:  {h_to_g_dist:.1f}")
+    print(f"Match: {'✓ YES' if abs(h_to_g_dist - expected_h_to_g) < 0.1 else '✗ NO'}")
     
     print(f"\n=== SUMMARY ===")
     
@@ -179,7 +211,7 @@ def test_fabrik_forward():
         (forward_result.iterations_used > 0, "Forward iteration performed"),
         (forward_result.constraints_satisfied, "Base fixed at origin"),
         (all_lengths_ok, "Segment lengths preserved"),
-        (final_distance_to_target <= 1.0, "Reasonable final accuracy"),  # Allow 1 unit tolerance
+        (final_distance_to_target <= tolerance * 100, "Reasonable final accuracy"),  # Allow 100x tolerance
     ]
     
     all_success = all(criterion[0] for criterion in success_criteria)
@@ -195,12 +227,18 @@ def test_fabrik_forward():
         print("✗ Some issues detected - check implementation")
     
     print(f"\nForward iteration results:")
+    print(f"  - Using: {num_segments} segments ({len(initial_chain.joints)} joints)")
     print(f"  - Target: ({target_x}, {target_y}, {target_z})")
-    print(f"  - Backward iterations: {backward_result.iterations_used}")
-    print(f"  - Forward iterations: {forward_result.iterations_used}")
+    print(f"  - Backward iterations: {backward_result.iterations_used}/{max_iterations}")
+    print(f"  - Forward iterations: {forward_result.iterations_used}/{max_iterations}")
     print(f"  - Final accuracy: {final_distance_to_target:.4f}")
     print(f"  - Base at origin: {forward_result.constraints_satisfied}")
     print(f"  - Segment lengths preserved: {all_lengths_ok}")
+    print(f"  - Using constants from C++ headers:")
+    print(f"    * DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}")
+    print(f"    * FABRIK_TOLERANCE = {delta_robot.FABRIK_TOLERANCE}")
+    print(f"    * MIN_HEIGHT = {delta_robot.MIN_HEIGHT}")
+    print(f"    * MOTOR_LIMIT = {delta_robot.MOTOR_LIMIT}")
     
     return True
 
