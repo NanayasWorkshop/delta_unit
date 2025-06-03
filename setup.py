@@ -107,7 +107,7 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=['-O2'],
     ),
-    # NEW! Joint State Motor module - Target to Motor Positions
+    # ENHANCED! Joint State Motor module - Target to Motor Positions with Sequential Calculation
     Pybind11Extension(
         "delta_robot.joint_state_motor",
         [
@@ -123,6 +123,8 @@ ext_modules = [
             "cpp/src/kinematics_module.cpp",
             "cpp/src/fermat_module.cpp", 
             "cpp/src/joint_state.cpp",
+            # NEW! Orientation module (required by enhanced joint_state_motor.cpp)
+            "cpp/src/orientation_module.cpp",
             # Base math utilities
             "cpp/src/math_utils.cpp"
         ],

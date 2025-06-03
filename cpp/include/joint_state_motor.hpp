@@ -3,8 +3,30 @@
 
 #include "math_utils.hpp"
 #include "fabrik_solver.hpp"
+#include "kinematics_module.hpp"
+#include "orientation_module.hpp"
 
 namespace delta {
+
+// Motor data for a single segment
+struct SegmentMotorData {
+    int segment_number;
+    Vector3 fabrik_position;            // Original position from FABRIK
+    Vector3 local_position;             // Position in local coordinate system
+    
+    // Motor positions
+    double z_A, z_B, z_C;               // Base actuator positions
+    double prismatic_joint;             // Prismatic actuator
+    double roll_joint, pitch_joint;     // Orientation joints
+    
+    // Coordinate frame data
+    CoordinateFrame uvw_frame;          // UVW frame at this segment
+    Matrix4x4 local_to_world;           // Transform from local to world coordinates
+    
+    SegmentMotorData(int seg_num, const Vector3& fabrik_pos)
+        : segment_number(seg_num), fabrik_position(fabrik_pos), local_position(fabrik_pos)
+        , z_A(0), z_B(0), z_C(0), prismatic_joint(0), roll_joint(0), pitch_joint(0) {}
+};
 
 struct JointStateMotorResult {
     Vector3 target_position;           // Input target
@@ -17,9 +39,8 @@ struct JointStateMotorResult {
     // FABRIK solution details
     FabrikSolutionResult fabrik_result; // Complete FABRIK result
     
-    // TODO: Later will add real motor positions here
-    // std::vector<double> motor_positions;
-    // std::vector<double> joint_angles;
+    // Motor data for all segments
+    std::vector<SegmentMotorData> all_segment_motors;  // Motor data for each segment
     
     JointStateMotorResult(const Vector3& target, const Vector3& achieved,
                          bool converged, double error, int iterations,
@@ -32,7 +53,7 @@ struct JointStateMotorResult {
 
 class JointStateMotorModule {
 public:
-    // Main interface: input target, get motor positions
+    // Main interface: sequential calculation (the ONLY correct method)
     static JointStateMotorResult calculate_motors(double target_x, double target_y, double target_z);
     static JointStateMotorResult calculate_motors(const Vector3& target_position);
     
@@ -52,12 +73,22 @@ private:
                                                    double tolerance,
                                                    int max_iterations);
     
-    // TODO: Later will add motor position calculation methods
-    // static std::vector<double> convert_to_motor_positions(const FabrikSolutionResult& fabrik_result);
-    // static std::vector<double> calculate_joint_angles(const FabrikSolutionResult& fabrik_result);
+    // CORRECTED: Sequential calculation with proper coordinate system progression
+    static std::vector<SegmentMotorData> calculate_all_segment_motors_sequential(
+        const std::vector<SegmentEndEffectorData>& segment_end_effectors);
+    
+    // Transform coordinates using relative positioning instead of absolute transformation
+    static Vector3 transform_to_local_coordinates(const Vector3& world_position, 
+                                                  const Vector3& reference_position,
+                                                  const CoordinateFrame& reference_frame);
+    
+    static SegmentMotorData calculate_single_segment_motors(
+        int segment_number,
+        const Vector3& fabrik_position,
+        const Vector3& local_position);
 };
 
-// Convenience functions for common use cases
+// Convenience functions
 namespace joint_state_utils {
     
     // Quick solve with default parameters

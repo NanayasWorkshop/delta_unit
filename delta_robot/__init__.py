@@ -66,7 +66,7 @@ except ImportError as e:
     fabrik_fwd = None
     fabrik = None
 
-# Import NEW Joint State Motor module
+# Import ENHANCED Joint State Motor module
 try:
     from . import joint_state_motor as motor
 except ImportError as e:
@@ -120,7 +120,7 @@ def solve_fabrik_ik(target_x, target_y, target_z, num_segments=None, tolerance=N
 
 def calculate_motors(target_x, target_y, target_z, num_segments=None, tolerance=None):
     """
-    NEW! Calculate motor positions for target using Joint State Motor module.
+    Calculate motor positions for target using Joint State Motor module (simple calculation).
     
     Args:
         target_x, target_y, target_z: Target position coordinates
@@ -142,7 +142,56 @@ def calculate_motors(target_x, target_y, target_z, num_segments=None, tolerance=
         # Use advanced interface with custom parameters
         target = Vector3(target_x, target_y, target_z)
         return motor.JointStateMotorModule.calculate_motors_advanced(
-            target, num_segments, tolerance, FABRIK_MAX_ITERATIONS)
+            target, num_segments, tolerance, FABRIK_MAX_ITERATIONS, False)  # Simple method
+
+def calculate_motors_sequential(target_x, target_y, target_z, num_segments=None, tolerance=None):
+    """
+    NEW! Calculate motor positions for target using sequential transformation method.
+    
+    Args:
+        target_x, target_y, target_z: Target position coordinates
+        num_segments: Number of robot segments (default: uses DEFAULT_ROBOT_SEGMENTS constant)
+        tolerance: Convergence tolerance (default: uses FABRIK_TOLERANCE constant)
+    
+    Returns:
+        JointStateMotorResult with sequential calculation if motor module available, None otherwise
+    """
+    if motor is None:
+        print("Error: Joint State Motor module not available. Build it first.")
+        return None
+    
+    # Use constants as defaults
+    if num_segments is None or tolerance is None:
+        # Use simple interface for defaults
+        return motor.JointStateMotorModule.calculate_motors_sequential(target_x, target_y, target_z)
+    else:
+        # Use advanced interface with custom parameters
+        target = Vector3(target_x, target_y, target_z)
+        return motor.JointStateMotorModule.calculate_motors_advanced(
+            target, num_segments, tolerance, FABRIK_MAX_ITERATIONS, True)  # Sequential method
+
+def compare_motor_methods(target_x, target_y, target_z):
+    """
+    NEW! Compare simple vs sequential motor calculation methods.
+    
+    Args:
+        target_x, target_y, target_z: Target position coordinates
+    
+    Returns:
+        Tuple of (simple_result, sequential_result) if motor module available, None otherwise
+    """
+    if motor is None:
+        print("Error: Joint State Motor module not available. Build it first.")
+        return None
+    
+    # Use the comparison utility function
+    motor.compare_calculation_methods(target_x, target_y, target_z)
+    
+    # Also return both results for further analysis
+    simple_result = motor.JointStateMotorModule.calculate_motors(target_x, target_y, target_z)
+    sequential_result = motor.JointStateMotorModule.calculate_motors_sequential(target_x, target_y, target_z)
+    
+    return simple_result, sequential_result
 
 def verify_installation():
     """Verify that all modules imported correctly."""
@@ -156,7 +205,7 @@ def verify_installation():
         'fabrik_backward': fabrik_back is not None,
         'fabrik_forward': fabrik_fwd is not None,
         'fabrik_solver': fabrik is not None,
-        'joint_state_motor': motor is not None,  # NEW!
+        'joint_state_motor': motor is not None,
     }
     
     all_good = all(modules_status.values())
@@ -165,7 +214,7 @@ def verify_installation():
         print("✓ All delta robot modules imported successfully!")
         print(f"✓ Using {DEFAULT_ROBOT_SEGMENTS} robot segments (from C++ constants)")
         print(f"✓ FABRIK tolerance: {FABRIK_TOLERANCE} (from C++ constants)")
-        print("✓ Joint State Motor module available for motor calculations")
+        print("✓ Enhanced Joint State Motor module available with sequential calculation")
     else:
         print("Status of delta robot modules:")
         for module, status in modules_status.items():
@@ -230,25 +279,63 @@ def show_motor_capabilities():
         print("  python setup.py build_ext --inplace")
         return
     
-    print("Available Motor capabilities:")
+    print("Available Enhanced Motor capabilities:")
     print("✓ Target to Motor Positions - High-level interface")
     print("✓ FABRIK Integration - Calls FABRIK solver internally")
     print("✓ End-Effector Analysis - Shows achieved positions")
     print("✓ Workspace Testing - Check reachability")
     print("✓ Batch Processing - Multiple targets")
+    print("✓ NEW! Sequential Transformation - Progressive coordinate system alignment")
+    print("✓ NEW! Method Comparison - Compare simple vs sequential calculations")
     print()
     print(f"Configuration (from C++ constants):")
     print(f"  Default segments: {DEFAULT_ROBOT_SEGMENTS}")
     print(f"  Tolerance: {FABRIK_TOLERANCE}")
     print(f"  Max iterations: {FABRIK_MAX_ITERATIONS}")
     print()
-    print("Quick usage:")
+    print("Quick usage (Simple method):")
     print("  import delta_robot")
     print("  result = delta_robot.calculate_motors(100, 50, 300)")
     print("  print(f'Converged: {result.fabrik_converged}, Error: {result.fabrik_error}')")
-    print("  # Calls FABRIK internally and shows end-effector positions!")
+    print("  # Shows motor positions for all segments!")
+    print()
+    print("NEW! Sequential method usage:")
+    print("  result = delta_robot.calculate_motors_sequential(100, 50, 300)")
+    print("  # Uses progressive coordinate transformations for each segment")
+    print()
+    print("NEW! Compare both methods:")
+    print("  simple_result, sequential_result = delta_robot.compare_motor_methods(100, 50, 300)")
+    print("  # Shows detailed comparison of motor values")
     print()
     print("Advanced usage:")
     print("  import delta_robot.joint_state_motor as motor")
-    print("  result = motor.JointStateMotorModule.calculate_motors_advanced(target, 12, 0.001, 200)")
-    print("  # Custom segments, tolerance, iterations")
+    print("  result = motor.JointStateMotorModule.calculate_motors_advanced(target, 12, 0.001, 200, True)")
+    print("  # Custom segments, tolerance, iterations, sequential=True")
+
+def show_enhanced_features():
+    """NEW! Show enhanced sequential calculation features."""
+    print("ENHANCED SEQUENTIAL CALCULATION FEATURES:")
+    print("=" * 60)
+    print("✓ Progressive Coordinate Transformation")
+    print("  - Each segment becomes local origin for next calculation")
+    print("  - UVW→XYZ transformation matrices applied sequentially")
+    print("  - More accurate for complex multi-segment configurations")
+    print()
+    print("✓ All Segment Motor Data")
+    print("  - Motor positions calculated for ALL segments (not just first)")
+    print("  - Both original and transformed positions available")
+    print("  - Individual UVW coordinate frames for each segment")
+    print()
+    print("✓ Method Comparison")
+    print("  - Side-by-side comparison of Simple vs Sequential methods")
+    print("  - Motor value differences analysis")
+    print("  - Transformation distance tracking")
+    print()
+    print("✓ Enhanced Visualization")
+    print("  - 3D plots showing all segments and coordinate frames")
+    print("  - Transformation vectors displayed")
+    print("  - Motor value comparison tables")
+    print()
+    print("Usage examples:")
+    print("  python3 tests/test_joint_state_motor_enhanced.py 100,50,300")
+    print("  python3 tests/test_sequential_simple.py 200,100,400")

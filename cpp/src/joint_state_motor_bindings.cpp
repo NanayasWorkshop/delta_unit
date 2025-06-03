@@ -7,9 +7,36 @@ using namespace pybind11::literals;
 PYBIND11_MODULE(joint_state_motor, m) {
     m.doc() = "Delta robot joint state motor module - Converts targets to motor positions";
     
-    // NO Vector3/FabrikSolutionResult registration - assumes delta_types and fabrik_solver are imported
+    // SegmentMotorData structure - Motor data for individual segments
+    pybind11::class_<delta::SegmentMotorData>(m, "SegmentMotorData")
+        .def_readonly("segment_number", &delta::SegmentMotorData::segment_number)
+        .def_readonly("fabrik_position", &delta::SegmentMotorData::fabrik_position)
+        .def_readonly("local_position", &delta::SegmentMotorData::local_position)
+        .def_readonly("z_A", &delta::SegmentMotorData::z_A)
+        .def_readonly("z_B", &delta::SegmentMotorData::z_B)
+        .def_readonly("z_C", &delta::SegmentMotorData::z_C)
+        .def_readonly("prismatic_joint", &delta::SegmentMotorData::prismatic_joint)
+        .def_readonly("roll_joint", &delta::SegmentMotorData::roll_joint)
+        .def_readonly("pitch_joint", &delta::SegmentMotorData::pitch_joint)
+        .def_readonly("uvw_frame", &delta::SegmentMotorData::uvw_frame)
+        .def_readonly("local_to_world", &delta::SegmentMotorData::local_to_world)
+        .def("__repr__", [](const delta::SegmentMotorData& s) {
+            return "SegmentMotorData(segment=" + std::to_string(s.segment_number) + 
+                   ", fabrik=(" + std::to_string(s.fabrik_position.x) + "," + 
+                   std::to_string(s.fabrik_position.y) + "," + 
+                   std::to_string(s.fabrik_position.z) + 
+                   "), local=(" + std::to_string(s.local_position.x) + "," + 
+                   std::to_string(s.local_position.y) + "," + 
+                   std::to_string(s.local_position.z) + 
+                   "), motors=[zA=" + std::to_string(s.z_A) + 
+                   ", zB=" + std::to_string(s.z_B) + 
+                   ", zC=" + std::to_string(s.z_C) + 
+                   ", prismatic=" + std::to_string(s.prismatic_joint) + 
+                   ", roll=" + std::to_string(s.roll_joint * 180 / 3.14159) + "°" +
+                   ", pitch=" + std::to_string(s.pitch_joint * 180 / 3.14159) + "°])";
+        });
     
-    // JointStateMotorResult structure - Main output
+    // JointStateMotorResult structure - Main output with all segment motor data
     pybind11::class_<delta::JointStateMotorResult>(m, "JointStateMotorResult")
         .def_readonly("target_position", &delta::JointStateMotorResult::target_position)
         .def_readonly("achieved_end_effector", &delta::JointStateMotorResult::achieved_end_effector)
@@ -17,7 +44,8 @@ PYBIND11_MODULE(joint_state_motor, m) {
         .def_readonly("fabrik_error", &delta::JointStateMotorResult::fabrik_error)
         .def_readonly("fabrik_iterations", &delta::JointStateMotorResult::fabrik_iterations)
         .def_readonly("solve_time_ms", &delta::JointStateMotorResult::solve_time_ms)
-        .def_readonly("fabrik_result", &delta::JointStateMotorResult::fabrik_result)  // Complete FABRIK data
+        .def_readonly("fabrik_result", &delta::JointStateMotorResult::fabrik_result)
+        .def_readonly("all_segment_motors", &delta::JointStateMotorResult::all_segment_motors)
         .def("__repr__", [](const delta::JointStateMotorResult& r) {
             return "JointStateMotorResult(target=(" + 
                    std::to_string(r.target_position.x) + "," +
@@ -26,7 +54,8 @@ PYBIND11_MODULE(joint_state_motor, m) {
                    "), converged=" + (r.fabrik_converged ? "True" : "False") +
                    ", error=" + std::to_string(r.fabrik_error) +
                    ", iterations=" + std::to_string(r.fabrik_iterations) +
-                   ", time=" + std::to_string(r.solve_time_ms) + "ms)";
+                   ", time=" + std::to_string(r.solve_time_ms) + "ms" +
+                   ", segments=" + std::to_string(r.all_segment_motors.size()) + ")";
         });
     
     // JointStateMotorModule - Main interface
@@ -61,7 +90,7 @@ PYBIND11_MODULE(joint_state_motor, m) {
           "x"_a, "y"_a, "z"_a,
           "Test if point is reachable and print result");
     
-    // Constants from delta_types (just for convenience, but main source is delta_types module)
+    // Constants
     m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
     m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
     m.attr("FABRIK_MAX_ITERATIONS") = delta::FABRIK_MAX_ITERATIONS;
