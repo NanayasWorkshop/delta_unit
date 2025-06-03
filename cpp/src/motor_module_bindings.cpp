@@ -27,13 +27,41 @@ PYBIND11_MODULE(motor_module, m) {
         .def_readonly("uvw_u_axis", &delta::MotorResult::uvw_u_axis)
         .def_readonly("uvw_v_axis", &delta::MotorResult::uvw_v_axis)
         .def_readonly("uvw_w_axis", &delta::MotorResult::uvw_w_axis)
+        .def_readonly("transformed_segment_numbers", &delta::MotorResult::transformed_segment_numbers)
+        .def_readonly("transformed_segment_positions", &delta::MotorResult::transformed_segment_positions)
+        .def_readonly("second_segment_position", &delta::MotorResult::second_segment_position)
+        .def_readonly("second_z_A", &delta::MotorResult::second_z_A)
+        .def_readonly("second_z_B", &delta::MotorResult::second_z_B)
+        .def_readonly("second_z_C", &delta::MotorResult::second_z_C)
+        .def_readonly("second_prismatic_joint", &delta::MotorResult::second_prismatic_joint)
+        .def_readonly("second_roll_joint", &delta::MotorResult::second_roll_joint)
+        .def_readonly("second_pitch_joint", &delta::MotorResult::second_pitch_joint)
+        .def_readonly("second_uvw_origin", &delta::MotorResult::second_uvw_origin)
+        .def_readonly("second_uvw_u_axis", &delta::MotorResult::second_uvw_u_axis)
+        .def_readonly("second_uvw_v_axis", &delta::MotorResult::second_uvw_v_axis)
+        .def_readonly("second_uvw_w_axis", &delta::MotorResult::second_uvw_w_axis)
+        .def_readonly("second_level_transformed_segment_numbers", &delta::MotorResult::second_level_transformed_segment_numbers)
+        .def_readonly("second_level_transformed_segment_positions", &delta::MotorResult::second_level_transformed_segment_positions)
+        .def_readonly("third_segment_position", &delta::MotorResult::third_segment_position)
+        .def_readonly("third_z_A", &delta::MotorResult::third_z_A)
+        .def_readonly("third_z_B", &delta::MotorResult::third_z_B)
+        .def_readonly("third_z_C", &delta::MotorResult::third_z_C)
+        .def_readonly("third_prismatic_joint", &delta::MotorResult::third_prismatic_joint)
+        .def_readonly("third_roll_joint", &delta::MotorResult::third_roll_joint)
+        .def_readonly("third_pitch_joint", &delta::MotorResult::third_pitch_joint)
+        .def_readonly("third_uvw_origin", &delta::MotorResult::third_uvw_origin)
+        .def_readonly("third_uvw_u_axis", &delta::MotorResult::third_uvw_u_axis)
+        .def_readonly("third_uvw_v_axis", &delta::MotorResult::third_uvw_v_axis)
+        .def_readonly("third_uvw_w_axis", &delta::MotorResult::third_uvw_w_axis)
         .def("__repr__", [](const delta::MotorResult& r) {
             return "MotorResult(target=(" + 
                    std::to_string(r.target_position.x) + "," +
                    std::to_string(r.target_position.y) + "," + 
                    std::to_string(r.target_position.z) + 
                    "), converged=" + (r.fabrik_converged ? "True" : "False") +
-                   ", segments=" + std::to_string(r.segment_numbers.size()) + ")";
+                   ", segments=" + std::to_string(r.segment_numbers.size()) +
+                   ", transformed=" + std::to_string(r.transformed_segment_numbers.size()) +
+                   ", second_level=" + std::to_string(r.second_level_transformed_segment_numbers.size()) + ")";
         });
     
     // MotorModule class

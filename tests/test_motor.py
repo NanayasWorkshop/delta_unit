@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Clean Motor Module Test
+Clean Motor Module Test with UVW to XYZ transformation
 """
 
 import sys
@@ -60,6 +60,48 @@ def main():
             print(f"U-axis: ({result.uvw_u_axis.x:.3f}, {result.uvw_u_axis.y:.3f}, {result.uvw_u_axis.z:.3f})")
             print(f"V-axis: ({result.uvw_v_axis.x:.3f}, {result.uvw_v_axis.y:.3f}, {result.uvw_v_axis.z:.3f})")
             print(f"W-axis: ({result.uvw_w_axis.x:.3f}, {result.uvw_w_axis.y:.3f}, {result.uvw_w_axis.z:.3f})")
+        
+        # Print transformed segments (UVW-aligned coordinate system)
+        if hasattr(result, 'transformed_segment_numbers') and result.transformed_segment_numbers:
+            print(f"\nTRANSFORMED SEGMENTS (UVW -> XYZ aligned):")
+            print("(Translated so Segment 1 is at origin, rotated so UVW axes align with XYZ)")
+            for i, (seg_num, pos) in enumerate(zip(result.transformed_segment_numbers, result.transformed_segment_positions)):
+                print(f"Segment {seg_num}': ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})")
+        
+        # Print second segment (transformed) kinematics and orientation data
+        if hasattr(result, 'second_segment_position') and result.transformed_segment_positions:
+            print(f"\nSECOND SEGMENT (S2') KINEMATICS:")
+            print(f"Position: ({result.second_segment_position.x:.3f}, {result.second_segment_position.y:.3f}, {result.second_segment_position.z:.3f})")
+            print(f"Motors: z_A={result.second_z_A:.3f}, z_B={result.second_z_B:.3f}, z_C={result.second_z_C:.3f}")
+            print(f"Joints: prismatic={result.second_prismatic_joint:.3f}, roll={result.second_roll_joint:.1f}°, pitch={result.second_pitch_joint:.1f}°")
+            
+            # Print second segment orientation data (Final UVW)
+            print(f"\nSECOND SEGMENT (S2') ORIENTATION (Final UVW):")
+            print(f"Origin: ({result.second_uvw_origin.x:.3f}, {result.second_uvw_origin.y:.3f}, {result.second_uvw_origin.z:.3f})")
+            print(f"U-axis: ({result.second_uvw_u_axis.x:.3f}, {result.second_uvw_u_axis.y:.3f}, {result.second_uvw_u_axis.z:.3f})")
+            print(f"V-axis: ({result.second_uvw_v_axis.x:.3f}, {result.second_uvw_v_axis.y:.3f}, {result.second_uvw_v_axis.z:.3f})")
+            print(f"W-axis: ({result.second_uvw_w_axis.x:.3f}, {result.second_uvw_w_axis.y:.3f}, {result.second_uvw_w_axis.z:.3f})")
+        
+        # Print second-level transformed segments (S2' UVW-aligned coordinate system)
+        if hasattr(result, 'second_level_transformed_segment_numbers') and result.second_level_transformed_segment_numbers:
+            print(f"\nSECOND-LEVEL TRANSFORMED SEGMENTS (S2' UVW -> XYZ aligned):")
+            print("(Translated so Segment 2' is at origin, rotated so S2' UVW axes align with XYZ)")
+            for i, (seg_num, pos) in enumerate(zip(result.second_level_transformed_segment_numbers, result.second_level_transformed_segment_positions)):
+                print(f"Segment {seg_num}'': ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})")
+        
+        # Print third segment (second-level transformed) kinematics and orientation data
+        if hasattr(result, 'third_segment_position') and result.second_level_transformed_segment_positions:
+            print(f"\nTHIRD SEGMENT (S3'') KINEMATICS:")
+            print(f"Position: ({result.third_segment_position.x:.3f}, {result.third_segment_position.y:.3f}, {result.third_segment_position.z:.3f})")
+            print(f"Motors: z_A={result.third_z_A:.3f}, z_B={result.third_z_B:.3f}, z_C={result.third_z_C:.3f}")
+            print(f"Joints: prismatic={result.third_prismatic_joint:.3f}, roll={result.third_roll_joint:.1f}°, pitch={result.third_pitch_joint:.1f}°")
+            
+            # Print third segment orientation data (Final UVW)
+            print(f"\nTHIRD SEGMENT (S3'') ORIENTATION (Final UVW):")
+            print(f"Origin: ({result.third_uvw_origin.x:.3f}, {result.third_uvw_origin.y:.3f}, {result.third_uvw_origin.z:.3f})")
+            print(f"U-axis: ({result.third_uvw_u_axis.x:.3f}, {result.third_uvw_u_axis.y:.3f}, {result.third_uvw_u_axis.z:.3f})")
+            print(f"V-axis: ({result.third_uvw_v_axis.x:.3f}, {result.third_uvw_v_axis.y:.3f}, {result.third_uvw_v_axis.z:.3f})")
+            print(f"W-axis: ({result.third_uvw_w_axis.x:.3f}, {result.third_uvw_w_axis.y:.3f}, {result.third_uvw_w_axis.z:.3f})")
         
         print(f"\n✓ Motor module working correctly!")
         
