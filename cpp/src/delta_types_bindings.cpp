@@ -75,12 +75,28 @@ PYBIND11_MODULE(delta_types, m) {
                    ", w=" + "(" + std::to_string(f.w_axis.x) + "," + std::to_string(f.w_axis.y) + "," + std::to_string(f.w_axis.z) + "))";
         });
     
-    // Constants module integration - expose key constants
+    // Constants module integration - expose ALL constants from constants.hpp
+    // Robot Physical Constants
     m.attr("ROBOT_RADIUS") = delta::ROBOT_RADIUS;
     m.attr("MIN_HEIGHT") = delta::MIN_HEIGHT;
     m.attr("WORKING_HEIGHT") = delta::WORKING_HEIGHT;
     m.attr("MOTOR_LIMIT") = delta::MOTOR_LIMIT;
     m.attr("WORKSPACE_CONE_ANGLE_RAD") = delta::WORKSPACE_CONE_ANGLE_RAD;
+    
+    // FABRIK Configuration Constants - NEWLY ADDED
+    m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
+    m.attr("SPHERICAL_JOINT_CONE_ANGLE_RAD") = delta::SPHERICAL_JOINT_CONE_ANGLE_RAD;
+    m.attr("SPHERICAL_JOINT_CONE_ANGLE_DEG") = delta::SPHERICAL_JOINT_CONE_ANGLE_DEG;
+    
+    // FABRIK Solver Constants - NEWLY ADDED
+    m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
+    m.attr("FABRIK_MAX_ITERATIONS") = delta::FABRIK_MAX_ITERATIONS;
+    m.attr("EPSILON_MATH") = delta::EPSILON_MATH;
+    
+    // Geometry Constants - Base actuator positions
+    m.attr("BASE_A_ANGLE") = delta::BASE_A_ANGLE;
+    m.attr("BASE_B_ANGLE") = delta::BASE_B_ANGLE;
+    m.attr("BASE_C_ANGLE") = delta::BASE_C_ANGLE;
     
     // Utility functions
     m.def("rad_to_deg", &delta::rad_to_deg, "Convert radians to degrees");

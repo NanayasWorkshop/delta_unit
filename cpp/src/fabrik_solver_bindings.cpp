@@ -124,7 +124,6 @@ PYBIND11_MODULE(fabrik_solver, m) {
           "chain"_a, "target"_a,
           "Check if target is reachable");
     
-    // Expose solver constants
-    m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
-    m.attr("FABRIK_MAX_ITERATIONS") = delta::FABRIK_MAX_ITERATIONS;
+    // REMOVED: Redundant constant exposure - rely on delta_types module instead
+    // Constants are now centralized in delta_types_bindings.cpp
 }

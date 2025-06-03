@@ -92,7 +92,6 @@ PYBIND11_MODULE(fabrik_forward, m) {
     m.def("physical_to_fabrik_lengths", &delta::fabrik_forward_utils::physical_to_fabrik_lengths,
           "h_to_g_distances"_a, "Convert physical segments to FABRIK lengths");
     
-    // Expose solver constants
-    m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
-    m.attr("FABRIK_MAX_ITERATIONS") = delta::FABRIK_MAX_ITERATIONS;
+    // REMOVED: Redundant constant exposure - rely on delta_types module instead
+    // Constants are now centralized in delta_types_bindings.cpp
 }

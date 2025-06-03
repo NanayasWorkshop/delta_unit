@@ -99,8 +99,6 @@ PYBIND11_MODULE(fabrik_initialization, m) {
                    "num_robot_segments"_a,
                    "Get total number of joints for N segments");
     
-    // Expose constants for convenience
-    m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
-    m.attr("SPHERICAL_JOINT_CONE_ANGLE_RAD") = delta::SPHERICAL_JOINT_CONE_ANGLE_RAD;
-    m.attr("SPHERICAL_JOINT_CONE_ANGLE_DEG") = delta::SPHERICAL_JOINT_CONE_ANGLE_DEG;
+    // REMOVED: Redundant constant exposure - rely on delta_types module instead
+    // Constants are now centralized in delta_types_bindings.cpp
 }
