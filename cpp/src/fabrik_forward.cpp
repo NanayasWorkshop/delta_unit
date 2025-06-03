@@ -248,7 +248,7 @@ std::vector<SegmentProperties> FabrikForward::calculate_segment_properties(
         // Transform target direction to Z+ reference coordinate system
         Vector3 transformed_dir = transform_to_z_reference(pair.reference_direction, pair.target_direction);
         
-        // Calculate prismatic length using existing modules
+        // Calculate prismatic length using existing modules with FABRIK-specific half-angle
         double prismatic_length = calculate_prismatic_from_direction(transformed_dir);
         
         // Calculate H→G distance
@@ -302,9 +302,51 @@ Vector3 FabrikForward::transform_to_z_reference(const Vector3& reference_directi
 }
 
 double FabrikForward::calculate_prismatic_from_direction(const Vector3& transformed_direction) {
-    // Use KinematicsModule instead of FermatModule directly
-    // KinematicsModule properly handles half-angle transformation
-    KinematicsResult kinematics_result = KinematicsModule::calculate(transformed_direction);
+    // FABRIK-SPECIFIC: Apply half-angle transformation before calling kinematics
+    // This is where the half-angle logic belongs - in FABRIK, not in general kinematics
+    
+    // Calculate angle from Z axis
+    Vector3 z_axis(0, 0, 1);
+    Vector3 normalized_input = transformed_direction.normalized();
+    double dot_product = normalized_input.dot(z_axis);
+    double angle_from_z = std::acos(std::max(-1.0, std::min(1.0, dot_product)));
+    
+    // Create half-angle vector (FABRIK algorithm requirement) - inline implementation
+    Vector3 half_angle_vector;
+    
+    if (angle_from_z < 1e-10) {
+        // Input is already along Z axis, return Z axis
+        half_angle_vector = z_axis;
+    } else {
+        // Calculate half angle
+        double half_angle = angle_from_z / 2.0;
+        
+        // Find axis of rotation (cross product of z_axis and input)
+        Vector3 rotation_axis = cross_product(z_axis, normalized_input);
+        
+        // If vectors are opposite, choose arbitrary perpendicular axis
+        if (rotation_axis.norm() < 1e-10) {
+            rotation_axis = Vector3(1, 0, 0);
+        } else {
+            rotation_axis = rotation_axis.normalized();
+        }
+        
+        // Rotate Z axis by half_angle around rotation_axis using Rodrigues' rotation
+        double cos_half = std::cos(half_angle);
+        double sin_half = std::sin(half_angle);
+        
+        Vector3 k_cross_z = cross_product(rotation_axis, z_axis);
+        double k_dot_z = rotation_axis.dot(z_axis);
+        
+        half_angle_vector = z_axis * cos_half + 
+                           k_cross_z * sin_half + 
+                           rotation_axis * (k_dot_z * (1.0 - cos_half));
+        
+        half_angle_vector = half_angle_vector.normalized();
+    }
+    
+    // Use KinematicsModule with half-angle vector (kinematics will NOT apply additional half-angle)
+    KinematicsResult kinematics_result = KinematicsModule::calculate(half_angle_vector);
     
     // Extract prismatic length from kinematics result
     return kinematics_result.prismatic_joint_length;

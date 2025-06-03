@@ -10,7 +10,7 @@ namespace delta {
 struct KinematicsResult {
     Vector3 end_effector_position;      // Final end-effector position
     double prismatic_joint_length;      // Prismatic joint length from joint state
-    Vector3 transformed_vector;         // Half-angle transformed vector
+    Vector3 transformed_vector;         // Input vector (normalized, no half-angle)
     Vector3 original_input;             // Original input vector
     double input_angle_from_z;          // Angle between input and +Z axis (radians)
     
@@ -36,9 +36,8 @@ public:
 private:
     // Internal helper methods
     static double calculate_angle_from_z_axis(const Vector3& vector);
-    static Vector3 create_half_angle_vector(const Vector3& input_vector, double angle_from_z);
     static Vector3 calculate_end_effector_position(double prismatic_length, 
-                                                  const Vector3& transformed_vector);
+                                                  const Vector3& original_input);
 };
 
 } // namespace delta
