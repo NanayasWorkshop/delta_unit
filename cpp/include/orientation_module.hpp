@@ -59,15 +59,20 @@ struct OrientationResult {
     // Reference data (for debugging/validation)
     Vector3 fermat_point;
     Vector3 end_effector_position;
-    CoordinateFrame UVW_at_fermat;
-    CoordinateFrame final_frame;
+    
+    // NEW! All coordinate frames in transformation sequence
+    CoordinateFrame UVW_at_fermat;          // Step 1: UVW frame at Fermat point
+    CoordinateFrame IJK_mirrored;           // Step 2: IJK frame (mirrored across XY)
+    CoordinateFrame UVW_prime_aligned;      // Step 3: U'V'W' frame (aligned with origin)
+    CoordinateFrame final_frame;            // Step 4: U''V''W'' frame (at end-effector)
     
     OrientationResult(const Matrix4x4& matrix, const Vector3& fermat,
                      const Vector3& end_effector, const CoordinateFrame& uvw,
+                     const CoordinateFrame& ijk, const CoordinateFrame& uvw_prime,
                      const CoordinateFrame& final)
         : transformation_matrix(matrix), fermat_point(fermat)
         , end_effector_position(end_effector), UVW_at_fermat(uvw)
-        , final_frame(final) {}
+        , IJK_mirrored(ijk), UVW_prime_aligned(uvw_prime), final_frame(final) {}
 };
 
 class OrientationModule {
