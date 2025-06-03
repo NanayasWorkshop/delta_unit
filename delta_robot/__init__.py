@@ -18,17 +18,17 @@ try:
     MOTOR_LIMIT = delta_types.MOTOR_LIMIT
     WORKSPACE_CONE_ANGLE_RAD = delta_types.WORKSPACE_CONE_ANGLE_RAD
     
-    # FABRIK Configuration Constants - NEWLY ADDED
+    # FABRIK Configuration Constants
     DEFAULT_ROBOT_SEGMENTS = delta_types.DEFAULT_ROBOT_SEGMENTS
     SPHERICAL_JOINT_CONE_ANGLE_RAD = delta_types.SPHERICAL_JOINT_CONE_ANGLE_RAD
     SPHERICAL_JOINT_CONE_ANGLE_DEG = delta_types.SPHERICAL_JOINT_CONE_ANGLE_DEG
     
-    # FABRIK Solver Constants - NEWLY ADDED
+    # FABRIK Solver Constants
     FABRIK_TOLERANCE = delta_types.FABRIK_TOLERANCE
     FABRIK_MAX_ITERATIONS = delta_types.FABRIK_MAX_ITERATIONS
     EPSILON_MATH = delta_types.EPSILON_MATH
     
-    # Geometry Constants - NEWLY ADDED
+    # Geometry Constants
     BASE_A_ANGLE = delta_types.BASE_A_ANGLE
     BASE_B_ANGLE = delta_types.BASE_B_ANGLE
     BASE_C_ANGLE = delta_types.BASE_C_ANGLE
@@ -66,6 +66,14 @@ except ImportError as e:
     fabrik_fwd = None
     fabrik = None
 
+# Import NEW Joint State Motor module
+try:
+    from . import joint_state_motor as motor
+except ImportError as e:
+    print(f"Warning: Joint State Motor module not available: {e}")
+    # Don't fail package import if motor module isn't built yet
+    motor = None
+
 # Make all modules available
 types = delta_types
 
@@ -101,7 +109,7 @@ def solve_fabrik_ik(target_x, target_y, target_z, num_segments=None, tolerance=N
         print("Error: FABRIK modules not available. Build them first.")
         return None
     
-    # ✅ NOW USES CONSTANTS AS DEFAULTS
+    # Use constants as defaults
     if num_segments is None:
         num_segments = DEFAULT_ROBOT_SEGMENTS
     if tolerance is None:
@@ -109,6 +117,32 @@ def solve_fabrik_ik(target_x, target_y, target_z, num_segments=None, tolerance=N
     
     target = Vector3(target_x, target_y, target_z)
     return fabrik.solve_delta_robot(num_segments, target, tolerance)
+
+def calculate_motors(target_x, target_y, target_z, num_segments=None, tolerance=None):
+    """
+    NEW! Calculate motor positions for target using Joint State Motor module.
+    
+    Args:
+        target_x, target_y, target_z: Target position coordinates
+        num_segments: Number of robot segments (default: uses DEFAULT_ROBOT_SEGMENTS constant)
+        tolerance: Convergence tolerance (default: uses FABRIK_TOLERANCE constant)
+    
+    Returns:
+        JointStateMotorResult if motor module available, None otherwise
+    """
+    if motor is None:
+        print("Error: Joint State Motor module not available. Build it first.")
+        return None
+    
+    # Use constants as defaults
+    if num_segments is None or tolerance is None:
+        # Use simple interface for defaults
+        return motor.JointStateMotorModule.calculate_motors(target_x, target_y, target_z)
+    else:
+        # Use advanced interface with custom parameters
+        target = Vector3(target_x, target_y, target_z)
+        return motor.JointStateMotorModule.calculate_motors_advanced(
+            target, num_segments, tolerance, FABRIK_MAX_ITERATIONS)
 
 def verify_installation():
     """Verify that all modules imported correctly."""
@@ -122,6 +156,7 @@ def verify_installation():
         'fabrik_backward': fabrik_back is not None,
         'fabrik_forward': fabrik_fwd is not None,
         'fabrik_solver': fabrik is not None,
+        'joint_state_motor': motor is not None,  # NEW!
     }
     
     all_good = all(modules_status.values())
@@ -130,9 +165,10 @@ def verify_installation():
         print("✓ All delta robot modules imported successfully!")
         print(f"✓ Using {DEFAULT_ROBOT_SEGMENTS} robot segments (from C++ constants)")
         print(f"✓ FABRIK tolerance: {FABRIK_TOLERANCE} (from C++ constants)")
+        print("✓ Joint State Motor module available for motor calculations")
     else:
         print("Status of delta robot modules:")
-        for module, status in modules_status.values():
+        for module, status in modules_status.items():
             print(f"  {module}: {'✓' if status else '✗'}")
     
     return all_good
@@ -186,3 +222,33 @@ def show_fabrik_capabilities():
     print("  result = delta_robot.solve_fabrik_ik(100, 100, 300)")
     print("  print(f'Converged: {result.converged}, Error: {result.final_error}')")
     print(f"  # Will use {DEFAULT_ROBOT_SEGMENTS} segments automatically!")
+
+def show_motor_capabilities():
+    """Show available Motor capabilities."""
+    if motor is None:
+        print("Joint State Motor module not available. Build it with:")
+        print("  python setup.py build_ext --inplace")
+        return
+    
+    print("Available Motor capabilities:")
+    print("✓ Target to Motor Positions - High-level interface")
+    print("✓ FABRIK Integration - Calls FABRIK solver internally")
+    print("✓ End-Effector Analysis - Shows achieved positions")
+    print("✓ Workspace Testing - Check reachability")
+    print("✓ Batch Processing - Multiple targets")
+    print()
+    print(f"Configuration (from C++ constants):")
+    print(f"  Default segments: {DEFAULT_ROBOT_SEGMENTS}")
+    print(f"  Tolerance: {FABRIK_TOLERANCE}")
+    print(f"  Max iterations: {FABRIK_MAX_ITERATIONS}")
+    print()
+    print("Quick usage:")
+    print("  import delta_robot")
+    print("  result = delta_robot.calculate_motors(100, 50, 300)")
+    print("  print(f'Converged: {result.fabrik_converged}, Error: {result.fabrik_error}')")
+    print("  # Calls FABRIK internally and shows end-effector positions!")
+    print()
+    print("Advanced usage:")
+    print("  import delta_robot.joint_state_motor as motor")
+    print("  result = motor.JointStateMotorModule.calculate_motors_advanced(target, 12, 0.001, 200)")
+    print("  # Custom segments, tolerance, iterations")
