@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple FABRIK Visual Debugger
+Simple FABRIK Visual Debugger - UPDATED with constants
 Shows FABRIK chain (red) vs Actual Segment End-Effectors (green)
 """
 
@@ -54,32 +54,56 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
         import delta_robot.fabrik_solver as fs
         import delta_robot.fabrik_initialization as fi
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: delta_robot package not found: {e}")
         return False
     
-    # Initialize and solve
-    print(f"Solving for target ({target_x}, {target_y}, {target_z})...")
+    # ✅ USE CONSTANTS FROM C++ HEADERS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    tolerance = delta_robot.FABRIK_TOLERANCE
+    max_iterations = delta_robot.FABRIK_MAX_ITERATIONS
     
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    print(f"Using C++ constants:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+    print(f"  FABRIK_TOLERANCE = {tolerance}")
+    print(f"  FABRIK_MAX_ITERATIONS = {max_iterations}")
+    
+    # Initialize and solve
+    print(f"\nSolving for target ({target_x}, {target_y}, {target_z}) with {num_segments} segments...")
+    
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     target_position = dt.Vector3(target_x, target_y, target_z)
     
-    # Solve with default configuration
-    result = fs.FabrikSolver.solve(init_result.chain, target_position)
+    print(f"Robot initialized: {len(init_result.chain.joints)} joints, reach: {init_result.total_reach:.1f}")
     
-    print(f"Converged: {'Yes' if result.converged else 'No'}")
-    print(f"Final error: {result.final_error:.6f}")
-    print(f"Segment end-effectors found: {len(result.segment_end_effectors)}")
+    # Check reachability first
+    is_reachable = fs.is_target_reachable(init_result.chain, target_position)
+    distance_to_target = math.sqrt(target_x**2 + target_y**2 + target_z**2)
+    
+    print(f"Target distance: {distance_to_target:.1f}, Max reach: {init_result.total_reach:.1f}")
+    print(f"Reachable: {'✓ YES' if is_reachable else '✗ NO'}")
+    
+    # Solve with constants
+    result = fs.FabrikSolver.solve(init_result.chain, target_position, tolerance, max_iterations)
+    
+    print(f"\nSolution:")
+    print(f"  Converged: {'✓ YES' if result.converged else '✗ NO'}")
+    print(f"  Final error: {result.final_error:.6f}")
+    print(f"  Total iterations: {result.total_iterations}")
+    print(f"  Solve time: {result.solve_time_ms:.2f}ms")
+    print(f"  Segment end-effectors found: {len(result.segment_end_effectors)}")
     
     # Extract positions
     fabrik_positions = extract_fabrik_chain_positions(result.final_chain)
     actual_positions = calculate_actual_segment_end_effectors(result)
     
-    print(f"\nFABRIK Chain Positions:")
+    print(f"\nFABRIK Chain Positions ({len(fabrik_positions)} joints):")
     for i, pos in enumerate(fabrik_positions):
-        print(f"  Joint {i}: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
+        joint_type = "Base" if i == 0 else ("End-Effector" if i == len(fabrik_positions)-1 else f"Joint {i}")
+        print(f"  {joint_type}: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
     
-    print(f"\nActual Segment End-Effector Positions:")
+    print(f"\nActual Segment End-Effector Positions ({len(actual_positions)} segments):")
     for i, pos in enumerate(actual_positions):
         if i == 0:
             print(f"  Base: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
@@ -87,7 +111,7 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
             print(f"  Segment {i} EE: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
     
     # Create visualization
-    fig = plt.figure(figsize=(15, 5))
+    fig = plt.figure(figsize=(18, 6))
     
     # 3D view
     ax_3d = fig.add_subplot(131, projection='3d')
@@ -100,9 +124,9 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
     if fabrik_positions:
         fabrik_array = np.array(fabrik_positions)
         ax_3d.plot(fabrik_array[:, 0], fabrik_array[:, 1], fabrik_array[:, 2], 
-                  'r-o', linewidth=3, markersize=8, label='FABRIK Chain', alpha=0.8)
+                  'r-o', linewidth=3, markersize=6, label=f'FABRIK Chain ({len(fabrik_positions)} joints)', alpha=0.8)
         
-        # Mark joints
+        # Mark special joints
         for i, pos in enumerate(fabrik_positions):
             if i == 0:
                 ax_3d.scatter(*pos, color='black', s=150, marker='s', 
@@ -115,24 +139,24 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
     if actual_positions and len(actual_positions) > 1:
         actual_array = np.array(actual_positions)
         ax_3d.plot(actual_array[:, 0], actual_array[:, 1], actual_array[:, 2], 
-                  'g-D', linewidth=3, markersize=8, label='Actual Segment EEs', alpha=0.8)
+                  'g-D', linewidth=3, markersize=8, label=f'Actual Segment EEs ({len(actual_positions)-1} segments)', alpha=0.8)
         
         # Mark segment end-effectors
         for i, pos in enumerate(actual_positions[1:], 1):  # Skip base
             ax_3d.scatter(*pos, color='green', s=100, marker='D', 
                          edgecolor='white', linewidth=1)
-            ax_3d.text(pos[0], pos[1], pos[2] + 10, f'S{i}', 
+            ax_3d.text(pos[0], pos[1], pos[2] + 15, f'S{i}', 
                       fontsize=9, ha='center', va='bottom', color='green', weight='bold')
     
-    # Set 3D properties
-    max_range = max(abs(target_x), abs(target_y), abs(target_z), 400) * 1.1
+    # Set 3D properties with proper scaling for 8-segment robot
+    max_range = max(abs(target_x), abs(target_y), abs(target_z), init_result.total_reach) * 1.1
     ax_3d.set_xlim([0, max_range])
     ax_3d.set_ylim([0, max_range])
     ax_3d.set_zlim([0, max_range])
     ax_3d.set_xlabel('X')
     ax_3d.set_ylabel('Y')
     ax_3d.set_zlabel('Z')
-    ax_3d.set_title('FABRIK vs Actual Segment End-Effectors')
+    ax_3d.set_title(f'FABRIK vs Actual Segment EEs\n({num_segments} segments, reach: {init_result.total_reach:.0f})')
     ax_3d.legend()
     
     # XY projection
@@ -143,12 +167,18 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
     if fabrik_positions:
         fabrik_array = np.array(fabrik_positions)
         ax_xy.plot(fabrik_array[:, 0], fabrik_array[:, 1], 'r-o', 
-                  linewidth=2, markersize=6, label='FABRIK Chain', alpha=0.8)
+                  linewidth=2, markersize=4, label=f'FABRIK Chain ({len(fabrik_positions)} joints)', alpha=0.8)
     
     if actual_positions and len(actual_positions) > 1:
         actual_array = np.array(actual_positions)
         ax_xy.plot(actual_array[:, 0], actual_array[:, 1], 'g-D', 
-                  linewidth=2, markersize=6, label='Actual Segment EEs', alpha=0.8)
+                  linewidth=3, markersize=6, label=f'Actual Segment EEs ({len(actual_positions)-1} segments)', alpha=0.8)
+        
+        # Label segment positions
+        for i, pos in enumerate(actual_positions[1:], 1):
+            ax_xy.text(pos[0], pos[1], f'S{i}', fontsize=8, ha='center', va='center', 
+                      color='white', weight='bold', 
+                      bbox=dict(boxstyle='circle', facecolor='green', alpha=0.8))
     
     ax_xy.set_xlabel('X')
     ax_xy.set_ylabel('Y')
@@ -165,12 +195,18 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
     if fabrik_positions:
         fabrik_array = np.array(fabrik_positions)
         ax_xz.plot(fabrik_array[:, 0], fabrik_array[:, 2], 'r-o', 
-                  linewidth=2, markersize=6, label='FABRIK Chain', alpha=0.8)
+                  linewidth=2, markersize=4, label=f'FABRIK Chain ({len(fabrik_positions)} joints)', alpha=0.8)
     
     if actual_positions and len(actual_positions) > 1:
         actual_array = np.array(actual_positions)
         ax_xz.plot(actual_array[:, 0], actual_array[:, 2], 'g-D', 
-                  linewidth=2, markersize=6, label='Actual Segment EEs', alpha=0.8)
+                  linewidth=3, markersize=6, label=f'Actual Segment EEs ({len(actual_positions)-1} segments)', alpha=0.8)
+        
+        # Label segment positions
+        for i, pos in enumerate(actual_positions[1:], 1):
+            ax_xz.text(pos[0], pos[2], f'S{i}', fontsize=8, ha='center', va='center', 
+                      color='white', weight='bold', 
+                      bbox=dict(boxstyle='circle', facecolor='green', alpha=0.8))
     
     ax_xz.set_xlabel('X')
     ax_xz.set_ylabel('Z')
@@ -180,8 +216,8 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
     
     plt.tight_layout()
     
-    # Print comparison
-    print(f"\n=== COMPARISON ===")
+    # Print detailed comparison
+    print(f"\n=== DETAILED COMPARISON ===")
     if fabrik_positions and actual_positions:
         fabrik_final = fabrik_positions[-1]
         actual_final = actual_positions[-1] if len(actual_positions) > 1 else (0, 0, 0)
@@ -203,9 +239,37 @@ def visualize_fabrik_vs_actual(target_x, target_y, target_z):
         print(f"  Actual: {actual_dist:.6f}")
         print(f"  Difference: {abs(fabrik_dist - actual_dist):.6f}")
         
-        if actual_dist > 50:  # Arbitrary threshold
-            print(f"\n⚠️  WARNING: Actual segment end-effector is far from target!")
-            print(f"This indicates an issue with segment position calculation.")
+        # Check convergence with actual tolerance
+        if fabrik_dist <= tolerance:
+            print(f"  ✓ FABRIK converged within tolerance ({tolerance})")
+        else:
+            print(f"  ✗ FABRIK did not converge within tolerance ({tolerance})")
+        
+        if actual_dist <= tolerance * 10:  # Allow 10x tolerance for segment end-effectors
+            print(f"  ✓ Actual segment end-effector reasonably close to target")
+        else:
+            print(f"  ⚠️  Actual segment end-effector far from target (>{tolerance * 10:.3f})")
+    
+    # Print segment analysis
+    print(f"\n=== SEGMENT ANALYSIS ===")
+    if result.segment_end_effectors:
+        print(f"Individual segment data:")
+        for i, seg_data in enumerate(result.segment_end_effectors):
+            pos = seg_data.end_effector_position
+            print(f"  Segment {seg_data.segment_number}:")
+            print(f"    End-effector: ({pos.x:.3f}, {pos.y:.3f}, {pos.z:.3f})")
+            print(f"    Prismatic:    {seg_data.prismatic_length:.3f}")
+            print(f"    H→G distance: {seg_data.h_to_g_distance:.3f}")
+            print(f"    FABRIK dist:  {seg_data.fabrik_distance_from_base:.3f}")
+    
+    print(f"\n=== ALGORITHM PERFORMANCE ===")
+    print(f"Using {num_segments} segments (from DEFAULT_ROBOT_SEGMENTS)")
+    print(f"Tolerance: {tolerance} (from FABRIK_TOLERANCE)")
+    print(f"Max iterations: {max_iterations} (from FABRIK_MAX_ITERATIONS)")
+    print(f"Converged: {'✓ YES' if result.converged else '✗ NO'}")
+    print(f"Final error: {result.final_error:.6f}")
+    print(f"Total iterations: {result.total_iterations}")
+    print(f"Workspace: {init_result.total_reach:.0f} units")
     
     plt.show()
     return True
@@ -215,10 +279,28 @@ def main():
         target_x, target_y, target_z = parse_coordinates(sys.argv[1])
     else:
         target_x, target_y, target_z = 100, 100, 300
-        print("Usage: python3 visual_fabrik_debugger.py x,y,z")
+        print("Usage: python3 test_fabrik_solver_s_visual.py x,y,z")
         print(f"Using default target: ({target_x}, {target_y}, {target_z})")
     
-    visualize_fabrik_vs_actual(target_x, target_y, target_z)
+    print("Simple FABRIK Visual Debugger (Updated with Constants)")
+    print("=" * 60)
+    
+    success = visualize_fabrik_vs_actual(target_x, target_y, target_z)
+    
+    if success:
+        print("\nVisualization complete!")
+        print("Key:")
+        print("  🔴 Red line: FABRIK chain (internal algorithm joints)")
+        print("  🟢 Green line: Actual segment end-effectors (for stacked kinematics)")
+        print("  🟡 Gold X: Target position")
+        print("\nThe green line shows the actual segment positions needed for")
+        print("stacked kinematics calculations in your delta robot control system.")
+        print("\nTry different targets:")
+        print(f"  python3 test_fabrik_solver_s_visual.py 0,0,500     # Straight up")
+        print(f"  python3 test_fabrik_solver_s_visual.py 200,200,400 # Diagonal")
+        print(f"  python3 test_fabrik_solver_s_visual.py 300,0,600   # Side reach")
+    
+    return success
 
 if __name__ == "__main__":
     main()

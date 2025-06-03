@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Complete FABRIK Solver Visual Debugger
+Complete FABRIK Solver Visual Debugger - UPDATED with constants
 Shows detailed step-by-step visualization of the entire FABRIK algorithm
 FIXED VERSION: Now properly updates segment lengths like the main solver
 """
@@ -101,7 +101,7 @@ def plot_chain_3d(ax, chain, color='blue', alpha=1.0, linewidth=2, label='Chain'
     return positions
 
 def create_convergence_animation_data(target_x, target_y, target_z, verbose=False):
-    """Perform FABRIK solving and collect all intermediate states - FIXED VERSION"""
+    """Perform FABRIK solving and collect all intermediate states - FIXED VERSION with constants"""
     
     try:
         import delta_robot.fabrik_initialization as fi
@@ -109,14 +109,26 @@ def create_convergence_animation_data(target_x, target_y, target_z, verbose=Fals
         import delta_robot.fabrik_forward as ff
         import delta_robot.fabrik_solver as fs
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: delta_robot package not found: {e}")
         return None
     
+    # ✅ USE CONSTANTS FROM C++ HEADERS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    tolerance = delta_robot.FABRIK_TOLERANCE
+    max_iterations = delta_robot.FABRIK_MAX_ITERATIONS
+    
     # Initialize chain
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     initial_chain = init_result.chain
     target_position = dt.Vector3(target_x, target_y, target_z)
+    
+    if verbose:
+        print(f"Using C++ constants:")
+        print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+        print(f"  FABRIK_TOLERANCE = {tolerance}")
+        print(f"  FABRIK_MAX_ITERATIONS = {max_iterations}")
     
     # Store all states during solving
     all_states = []
@@ -125,7 +137,6 @@ def create_convergence_animation_data(target_x, target_y, target_z, verbose=Fals
     # Manual FABRIK cycles to capture intermediate states - NOW WITH PROPER SEGMENT LENGTH UPDATES
     current_chain = initial_chain
     max_cycles = 20  # Limit for visualization
-    tolerance = 0.01
     
     all_states.append({
         'chain': current_chain,
@@ -145,7 +156,7 @@ def create_convergence_animation_data(target_x, target_y, target_z, verbose=Fals
             print(f"\n--- Cycle {cycle + 1} ---")
         
         # Step 1: Backward iteration (move end-effector toward target)
-        backward_result = fb.FabrikBackward.iterate_to_target(current_chain, target_position, tolerance, 50)
+        backward_result = fb.FabrikBackward.iterate_to_target(current_chain, target_position, tolerance, max_iterations)
         backward_chain = backward_result.updated_chain
         
         backward_ee = fs.FabrikSolver.get_end_effector_position(backward_chain)
@@ -163,7 +174,7 @@ def create_convergence_animation_data(target_x, target_y, target_z, verbose=Fals
         })
         
         # Step 2: Forward iteration (fix base at origin)
-        forward_result = ff.FabrikForward.iterate_from_base(backward_chain, tolerance, 50)
+        forward_result = ff.FabrikForward.iterate_from_base(backward_chain, tolerance, max_iterations)
         forward_chain = forward_result.updated_chain
         
         forward_ee = fs.FabrikSolver.get_end_effector_position(forward_chain)
@@ -216,11 +227,14 @@ def create_convergence_animation_data(target_x, target_y, target_z, verbose=Fals
         'cycle_info': cycle_info,
         'target': target_position,
         'initial_chain': initial_chain,
-        'max_reach': init_result.total_reach
+        'max_reach': init_result.total_reach,
+        'num_segments': num_segments,
+        'tolerance': tolerance,
+        'max_iterations': max_iterations
     }
 
 def visualize_fabrik_solver_complete(target_x, target_y, target_z):
-    """Create comprehensive visualization of complete FABRIK solver"""
+    """Create comprehensive visualization of complete FABRIK solver with constants"""
     
     print(f"Collecting FABRIK solving data for target ({target_x}, {target_y}, {target_z})...")
     animation_data = create_convergence_animation_data(target_x, target_y, target_z, verbose=True)
@@ -232,6 +246,9 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
     cycle_info = animation_data['cycle_info']
     target = animation_data['target']
     max_reach = animation_data['max_reach']
+    num_segments = animation_data['num_segments']
+    tolerance = animation_data['tolerance']
+    max_iterations = animation_data['max_iterations']
     
     # Create large figure with multiple subplots
     fig = plt.figure(figsize=(24, 12))
@@ -269,7 +286,7 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
     ax_3d.set_xlabel('X')
     ax_3d.set_ylabel('Y')
     ax_3d.set_zlabel('Z')
-    ax_3d.set_title('FABRIK Solver Convergence (FIXED)', fontsize=12, weight='bold')
+    ax_3d.set_title(f'FABRIK Solver Convergence ({num_segments} Segments)', fontsize=12, weight='bold')
     ax_3d.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     
     # Error convergence plot
@@ -294,7 +311,7 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
     ax_error.legend(['Initial', 'Backward', 'Forward'])
     
     # Add horizontal line for tolerance
-    ax_error.axhline(y=0.01, color='green', linestyle='--', alpha=0.7, label='Tolerance')
+    ax_error.axhline(y=tolerance, color='green', linestyle='--', alpha=0.7, label=f'Tolerance ({tolerance})')
     
     # Base error plot
     ax_base = fig.add_subplot(233)
@@ -309,7 +326,7 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
     ax_base.set_ylabel('Base Position Error')
     ax_base.set_title('Base Constraint')
     ax_base.grid(True, alpha=0.3)
-    ax_base.axhline(y=0.01, color='green', linestyle='--', alpha=0.7, label='Tolerance')
+    ax_base.axhline(y=tolerance, color='green', linestyle='--', alpha=0.7, label=f'Tolerance ({tolerance})')
     
     # Segment length changes plot (NEW - shows the updates working)
     ax_segments = fig.add_subplot(234)
@@ -318,9 +335,9 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
         cycle_numbers = [info['cycle'] for info in cycle_info]
         
         # Show segment length changes per cycle
-        num_segments = len(cycle_info[0]['segment_lengths_before']) if cycle_info else 0
+        num_segments_data = len(cycle_info[0]['segment_lengths_before']) if cycle_info else 0
         
-        for seg_idx in range(num_segments):
+        for seg_idx in range(min(num_segments_data, 5)):  # Show only first 5 segments to avoid clutter
             before_lengths = [info['segment_lengths_before'][seg_idx] for info in cycle_info]
             after_lengths = [info['segment_lengths_after'][seg_idx] for info in cycle_info]
             
@@ -331,7 +348,7 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
         
         ax_segments.set_xlabel('FABRIK Cycle')
         ax_segments.set_ylabel('Segment Length')
-        ax_segments.set_title('Segment Length Updates (Shows Fix Working)')
+        ax_segments.set_title(f'Segment Length Updates ({num_segments} segments)')
         ax_segments.legend()
         ax_segments.grid(True, alpha=0.3)
     
@@ -364,13 +381,20 @@ def visualize_fabrik_solver_complete(target_x, target_y, target_z):
     total_forward_iters = sum(info['forward_iterations'] for info in cycle_info)
     converged = any(info['converged'] for info in cycle_info)
     
-    stats_text = f"""FABRIK SOLVER ANALYSIS (FIXED)
+    stats_text = f"""FABRIK SOLVER ANALYSIS (UPDATED WITH CONSTANTS)
 
-TARGET:
-Position: ({target.x}, {target.y}, {target.z})
-Distance: {math.sqrt(target.x**2 + target.y**2 + target.z**2):.1f}
+C++ CONSTANTS USED:
+DEFAULT_ROBOT_SEGMENTS = {num_segments}
+FABRIK_TOLERANCE = {tolerance}
+FABRIK_MAX_ITERATIONS = {max_iterations}
+
+ROBOT CONFIGURATION:
+Segments: {num_segments} (from DEFAULT_ROBOT_SEGMENTS)
+Joints: {len(animation_data['states'][0]['chain'].joints) if animation_data['states'] else 'N/A'}
 Max Reach: {max_reach:.1f}
-Reachable: {'YES' if math.sqrt(target.x**2 + target.y**2 + target.z**2) <= max_reach else 'NO'}
+Using C++ Constants:
+  FABRIK_TOLERANCE = {tolerance}
+  FABRIK_MAX_ITERATIONS = {max_iterations}
 
 ALGORITHM PERFORMANCE:
 Total Cycles: {total_cycles}
@@ -378,6 +402,12 @@ Total Iterations: {total_backward_iters + total_forward_iters}
   - Backward: {total_backward_iters}
   - Forward: {total_forward_iters}
 Converged: {'YES' if converged else 'NO'}
+
+TARGET:
+Position: ({target.x}, {target.y}, {target.z})
+Distance: {math.sqrt(target.x**2 + target.y**2 + target.z**2):.1f}
+Max Reach: {max_reach:.1f}
+Reachable: {'YES' if math.sqrt(target.x**2 + target.y**2 + target.z**2) <= max_reach else 'NO'}
 
 SEGMENT LENGTH UPDATES:
 ✓ Properly updating segment lengths
@@ -395,6 +425,7 @@ FINAL RESULT:"""
 End-Effector: ({final_ee.x:.2f}, {final_ee.y:.2f}, {final_ee.z:.2f})
 Target Error: {final_error:.4f}
 Base Error: {final_base_error:.4f}
+Within Tolerance: {'YES' if final_error <= tolerance else 'NO'}
 Accuracy: {((1 - final_error/math.sqrt(target.x**2 + target.y**2 + target.z**2)) * 100):.1f}%
 
 CONVERGENCE ANALYSIS:"""
@@ -419,18 +450,22 @@ ALGORITHM STATUS:"""
             else:
                 stats_text += "\n⚠ NEEDS ATTENTION: No convergence"
             
-            if final_base_error < 0.01:
+            if final_base_error < tolerance:
                 stats_text += "\n✓ Base constraint satisfied"
             else:
                 stats_text += "\n⚠ Base constraint violated"
     
     stats_text += f"""
 
-COMPARISON WITH ORIGINAL:
+IMPROVEMENTS WITH CONSTANTS:
+✓ Uses {num_segments} segments (not hardcoded 3)
+✓ Uses tolerance {tolerance} (from C++ header)
+✓ Uses max iterations {max_iterations} (from C++ header)
 ✓ Fixed segment length updates
 ✓ Matches main solver behavior
 ✓ No more oscillation issues
-✓ Proper convergence patterns"""
+✓ Proper convergence patterns
+✓ Realistic robot workspace ({max_reach:.0f} units)"""
     
     ax_text.text(0.05, 0.95, stats_text, transform=ax_text.transAxes, fontsize=9,
                 verticalalignment='top', fontfamily='monospace',
@@ -441,14 +476,20 @@ COMPARISON WITH ORIGINAL:
     
     # Print console summary
     print(f"\n{'='*80}")
-    print(f"FABRIK SOLVER VISUAL ANALYSIS COMPLETE (FIXED VERSION)")
+    print(f"FABRIK SOLVER VISUAL ANALYSIS COMPLETE (UPDATED WITH CONSTANTS)")
     print(f"{'='*80}")
+    print(f"Robot: {num_segments} segments, {len(states[0]['chain'].joints) if states else 'N/A'} joints")
     print(f"Target: ({target.x}, {target.y}, {target.z})")
     print(f"Cycles: {total_cycles}, Total iterations: {total_backward_iters + total_forward_iters}")
     print(f"Converged: {'YES' if converged else 'NO'}")
     if final_state:
         print(f"Final error: {final_state['error']:.4f}")
         print(f"Base error: {final_state['base_error']:.4f}")
+        print(f"Within tolerance: {'YES' if final_state['error'] <= tolerance else 'NO'}")
+    print(f"✓ Using C++ constants:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+    print(f"  FABRIK_TOLERANCE = {tolerance}")
+    print(f"  FABRIK_MAX_ITERATIONS = {max_iterations}")
     print(f"✓ Segment length updates: WORKING")
     print(f"✓ Algorithm behavior: MATCHES MAIN SOLVER")
     print(f"{'='*80}")
@@ -462,25 +503,27 @@ def main():
         target_x, target_y, target_z = 100, 100, 300
         print("Usage: python3 test_fabrik_solver_visual.py x,y,z")
     
-    print(f"Creating FIXED FABRIK solver visualization for target: ({target_x}, {target_y}, {target_z})")
-    print("✓ Now includes proper segment length updates")
+    print(f"Creating UPDATED FABRIK solver visualization for target: ({target_x}, {target_y}, {target_z})")
+    print("✓ Now uses C++ constants (DEFAULT_ROBOT_SEGMENTS, FABRIK_TOLERANCE, etc.)")
+    print("✓ Includes proper segment length updates")
     print("✓ Should match main solver convergence behavior")
     
     success = visualize_fabrik_solver_complete(target_x, target_y, target_z)
     
     if success:
-        print("\nFixed visualization now shows:")
-        print("1. 3D convergence progression (all intermediate states)")
-        print("2. Error convergence graph (should show proper convergence now)")
-        print("3. Base constraint enforcement (base should stay at origin)")
-        print("4. Segment length update tracking (NEW - shows the fix working)")
-        print("5. Per-cycle iteration count")
-        print("6. Detailed statistics with fix confirmation")
-        print("\nTry different targets to verify the fix:")
-        print("  python3 test_fabrik_solver_visual.py 0,0,400    # Straight up")
-        print("  python3 test_fabrik_solver_visual.py 200,0,200  # Far sideways")
-        print("  python3 test_fabrik_solver_visual.py 50,50,100  # Easy target")
-        print("  python3 test_fabrik_solver_visual.py 150,150,350 # Challenging")
+        print("\nUpdated visualization now shows:")
+        print("1. 3D convergence progression with correct number of segments")
+        print("2. Error convergence graph with proper tolerance lines")
+        print("3. Base constraint enforcement with tolerance checking")
+        print("4. Segment length update tracking (shows the fix working)")
+        print("5. Per-cycle iteration count analysis")
+        print("6. Detailed statistics with constant verification")
+        print("7. Realistic robot workspace and reach analysis")
+        print("\nTry different targets to test the updated system:")
+        print("  python3 test_fabrik_solver_visual.py 0,0,400      # Straight up")
+        print("  python3 test_fabrik_solver_visual.py 200,0,200    # Far sideways")
+        print("  python3 test_fabrik_solver_visual.py 50,50,100    # Easy target")
+        print("  python3 test_fabrik_solver_visual.py 300,300,600  # Challenging (8-segment reach)")
     else:
         print("Visualization failed - check module installation")
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Test the complete FABRIK Solver module with segment end-effector output
+Test the complete FABRIK Solver module with segment end-effector output - UPDATED with constants
 """
 
 import sys
@@ -200,12 +200,16 @@ def test_multiple_targets():
         import delta_robot.fabrik_solver as fs
         import delta_robot.fabrik_initialization as fi
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         return False
     
+    # ✅ USE CONSTANTS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    
     # Initialize chain
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     
     # Define test targets
     test_targets = [
@@ -243,12 +247,16 @@ def test_different_configurations():
         import delta_robot.fabrik_solver as fs
         import delta_robot.fabrik_initialization as fi
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         return False
     
+    # ✅ USE CONSTANTS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    
     # Initialize chain
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     target = dt.Vector3(100, 100, 300)
     
     # Test different configurations
@@ -283,12 +291,16 @@ def test_workspace_analysis():
         import delta_robot.fabrik_solver as fs
         import delta_robot.fabrik_initialization as fi
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         return False
     
+    # ✅ USE CONSTANTS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    
     # Initialize chain
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     
     # Test max reach in different directions
     directions = [
@@ -322,6 +334,7 @@ def test_fabrik_solver():
         import delta_robot.fabrik_solver as fs
         import delta_robot.fabrik_initialization as fi
         import delta_robot.delta_types as dt
+        import delta_robot  # Import main module for constants
     except ImportError as e:
         print(f"Error: Module not found: {e}")
         print("Build all FABRIK modules first (initialization, backward, forward, solver).")
@@ -330,12 +343,22 @@ def test_fabrik_solver():
     print("Testing Complete FABRIK Solver Module with Segment End-Effectors")
     print("=" * 80)
     
+    # ✅ USE CONSTANTS FROM C++ HEADERS
+    num_segments = delta_robot.DEFAULT_ROBOT_SEGMENTS
+    tolerance = delta_robot.FABRIK_TOLERANCE
+    max_iterations = delta_robot.FABRIK_MAX_ITERATIONS
+    
+    print(f"Using C++ constants:")
+    print(f"  DEFAULT_ROBOT_SEGMENTS = {num_segments}")
+    print(f"  FABRIK_TOLERANCE = {tolerance}")
+    print(f"  FABRIK_MAX_ITERATIONS = {max_iterations}")
+    
     # Test 1: Basic solving
     print(f"\n=== BASIC SOLVING TEST ===")
     
     # Initialize robot chain
-    print("Initializing 3-segment robot chain...")
-    init_result = fi.FabrikInitialization.initialize_straight_up(3)
+    print(f"Initializing {num_segments}-segment robot chain...")
+    init_result = fi.FabrikInitialization.initialize_straight_up(num_segments)
     initial_chain = init_result.chain
     
     print(f"Initial chain: {len(initial_chain.joints)} joints, total reach: {init_result.total_reach:.1f}")
@@ -356,9 +379,9 @@ def test_fabrik_solver():
         print(f"⚠️  Target is {distance_to_target - init_result.total_reach:.2f} units beyond reach")
         print("Trying anyway (solver should handle unreachable targets)...")
     
-    # Solve with default configuration
-    print(f"\nSolving with default configuration...")
-    result = fs.FabrikSolver.solve(initial_chain, target_position)
+    # Solve with default configuration using constants
+    print(f"\nSolving with default configuration (tolerance={tolerance})...")
+    result = fs.FabrikSolver.solve(initial_chain, target_position, tolerance, max_iterations)
     
     print_solution_summary(result, "Default Configuration")
     
@@ -370,13 +393,13 @@ def test_fabrik_solver():
     print(f"\n=== DETAILED CONFIGURATION TEST ===")
     
     config = fs.FabrikSolverConfig()
-    config.tolerance = 0.001
-    config.max_backward_forward_cycles = 100
+    config.tolerance = tolerance / 10  # Use tighter tolerance (10x better than default)
+    config.max_backward_forward_cycles = max_iterations
     config.track_convergence_history = True
     config.verbose_logging = False
     
     print(f"Using detailed configuration:")
-    print(f"  Tolerance: {config.tolerance}")
+    print(f"  Tolerance: {config.tolerance} (10x tighter than default {tolerance})")
     print(f"  Max cycles: {config.max_backward_forward_cycles}")
     print(f"  Track history: {config.track_convergence_history}")
     
@@ -388,7 +411,7 @@ def test_fabrik_solver():
     # Test 3: Convenience function
     print(f"\n=== CONVENIENCE FUNCTION TEST ===")
     
-    result_convenience = fs.solve_delta_robot(3, target_position, 0.01)
+    result_convenience = fs.solve_delta_robot(num_segments, target_position, tolerance)
     print_solution_summary(result_convenience, "Convenience Function")
     
     # Test 4: Solution validation
@@ -462,6 +485,7 @@ def test_fabrik_solver():
         print("\n⚠️  Some issues detected - check implementation")
     
     print(f"\nPerformance summary:")
+    print(f"  - Using: {num_segments} segments ({len(initial_chain.joints)} joints)")
     print(f"  - Target: ({target_x}, {target_y}, {target_z})")
     print(f"  - Reachable: {is_reachable}")
     print(f"  - Converged: {result.converged}")
@@ -470,6 +494,10 @@ def test_fabrik_solver():
     print(f"  - Solve time: {result.solve_time_ms:.2f}ms")
     print(f"  - Valid solution: {is_valid}")
     print(f"  - Segment end-effectors: {len(result.segment_end_effectors)}")
+    print(f"  - Using constants from C++ headers:")
+    print(f"    * DEFAULT_ROBOT_SEGMENTS = {delta_robot.DEFAULT_ROBOT_SEGMENTS}")
+    print(f"    * FABRIK_TOLERANCE = {delta_robot.FABRIK_TOLERANCE}")
+    print(f"    * FABRIK_MAX_ITERATIONS = {delta_robot.FABRIK_MAX_ITERATIONS}")
     
     # NEW! Summary of what we can now do
     print(f"\n=== NEXT STEPS FOR STACKED KINEMATICS ===")
