@@ -63,10 +63,7 @@ private:
     static void extract_original_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result);
     
     // Helper: Create rotation matrix from UVW to XYZ alignment
-    static void create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, double rotation_matrix[3][3]);
-    
-    // Helper: Apply rotation matrix to a vector
-    static Vector3 apply_rotation_matrix(const Vector3& vector, const double rotation_matrix[3][3]);
+    static void create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, Matrix3& rotation_matrix);
 };
 
 } // namespace delta

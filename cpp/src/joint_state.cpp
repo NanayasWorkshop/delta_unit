@@ -29,7 +29,7 @@ JointStateResult JointStateModule::calculate_from_fermat(const Vector3& directio
 // Actual implementations
 double JointStateModule::calculate_prismatic_joint(const Vector3& fermat_point) {
     // Prismatic joint = 2 × Z value of Fermat point
-    return 2.0 * fermat_point.z;
+    return 2.0 * fermat_point.z();
 }
 
 double JointStateModule::calculate_roll_joint(const Vector3& direction_vector) {
@@ -37,7 +37,7 @@ double JointStateModule::calculate_roll_joint(const Vector3& direction_vector) {
     Vector3 normalized = direction_vector.normalized();
     
     // Roll = -atan2(y, z) - rotation around X-axis
-    return -std::atan2(normalized.y, normalized.z);
+    return -std::atan2(normalized.y(), normalized.z());
 }
 
 double JointStateModule::calculate_pitch_joint(const Vector3& direction_vector) {
@@ -45,7 +45,7 @@ double JointStateModule::calculate_pitch_joint(const Vector3& direction_vector) 
     Vector3 normalized = direction_vector.normalized();
     
     // Pitch = atan2(x, z) - rotation around Y-axis
-    return std::atan2(normalized.x, normalized.z);
+    return std::atan2(normalized.x(), normalized.z());
 }
 
 } // namespace delta

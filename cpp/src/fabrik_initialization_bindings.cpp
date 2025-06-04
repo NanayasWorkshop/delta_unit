@@ -29,8 +29,8 @@ PYBIND11_MODULE(fabrik_initialization, m) {
                 case delta::JointType::SPHERICAL_120: type_str = "SPHERICAL_120"; break;
                 case delta::JointType::END_EFFECTOR: type_str = "END_EFFECTOR"; break;
             }
-            return "FabrikJoint(pos=(" + std::to_string(j.position.x) + "," + 
-                   std::to_string(j.position.y) + "," + std::to_string(j.position.z) + 
+            return "FabrikJoint(pos=(" + std::to_string(j.position.x()) + "," + 
+                   std::to_string(j.position.y()) + "," + std::to_string(j.position.z()) + 
                    "), type=" + type_str + ", constraint=" + std::to_string(j.constraint_angle) + ")";
         });
     
@@ -65,9 +65,9 @@ PYBIND11_MODULE(fabrik_initialization, m) {
         .def_readonly("total_reach", &delta::FabrikInitResult::total_reach)
         .def("__repr__", [](const delta::FabrikInitResult& r) {
             return "FabrikInitResult(end_effector=(" + 
-                   std::to_string(r.final_end_effector.x) + "," +
-                   std::to_string(r.final_end_effector.y) + "," + 
-                   std::to_string(r.final_end_effector.z) + 
+                   std::to_string(r.final_end_effector.x()) + "," +
+                   std::to_string(r.final_end_effector.y()) + "," + 
+                   std::to_string(r.final_end_effector.z()) + 
                    "), total_reach=" + std::to_string(r.total_reach) + 
                    ", joints=" + std::to_string(r.chain.joints.size()) + ")";
         });

@@ -149,7 +149,7 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
     
     if (config.verbose_logging) {
         std::cout << "Starting FABRIK algorithm with constants..." << std::endl;
-        std::cout << "Target: (" << target_position.x << ", " << target_position.y << ", " << target_position.z << ")" << std::endl;
+        std::cout << "Target: (" << target_position.x() << ", " << target_position.y() << ", " << target_position.z() << ")" << std::endl;
         std::cout << "Tolerance: " << config.tolerance << " (FABRIK_TOLERANCE = " << FABRIK_TOLERANCE << ")" << std::endl;
         std::cout << "Max iterations per pass: " << config.max_iterations << " (FABRIK_MAX_ITERATIONS = " << FABRIK_MAX_ITERATIONS << ")" << std::endl;
         std::cout << "Max backward-forward cycles: " << config.max_backward_forward_cycles << std::endl;
@@ -398,7 +398,7 @@ void FabrikSolver::log_iteration(int iteration, const Vector3& end_effector,
                                 const Vector3& target, double error, bool verbose) {
     if (verbose) {
         std::cout << "  Cycle " << iteration << ": End-effector=(" 
-                  << end_effector.x << ", " << end_effector.y << ", " << end_effector.z 
+                  << end_effector.x() << ", " << end_effector.y() << ", " << end_effector.z() 
                   << "), Error=" << error;
         
         // Show convergence status relative to tolerance

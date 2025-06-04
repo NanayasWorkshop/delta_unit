@@ -6,39 +6,6 @@
 
 namespace delta {
 
-// 4x4 Transformation Matrix structure
-struct Matrix4x4 {
-    double data[4][4];
-    
-    Matrix4x4() {
-        // Initialize as identity matrix
-        for (int i = 0; i < 4; i++) {
-            for (int j = 0; j < 4; j++) {
-                data[i][j] = (i == j) ? 1.0 : 0.0;
-            }
-        }
-    }
-    
-    // Access operators
-    double* operator[](int row) { return data[row]; }
-    const double* operator[](int row) const { return data[row]; }
-    
-    // Set translation (last column)
-    void set_translation(const Vector3& translation) {
-        data[0][3] = translation.x;
-        data[1][3] = translation.y;
-        data[2][3] = translation.z;
-    }
-    
-    // Set rotation (upper 3x3)
-    void set_rotation(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis) {
-        // Column-major: each axis is a column
-        data[0][0] = u_axis.x; data[0][1] = v_axis.x; data[0][2] = w_axis.x;
-        data[1][0] = u_axis.y; data[1][1] = v_axis.y; data[1][2] = w_axis.y;
-        data[2][0] = u_axis.z; data[2][1] = v_axis.z; data[2][2] = w_axis.z;
-    }
-};
-
 // Coordinate Frame structure
 struct CoordinateFrame {
     Vector3 origin;
@@ -54,19 +21,19 @@ struct CoordinateFrame {
 };
 
 struct OrientationResult {
-    Matrix4x4 transformation_matrix;        // Position + orientation combined
+    Matrix4 transformation_matrix;        // Position + orientation combined
     
     // Reference data (for debugging/validation)
     Vector3 fermat_point;
     Vector3 end_effector_position;
     
-    // NEW! All coordinate frames in transformation sequence
+    // All coordinate frames in transformation sequence
     CoordinateFrame UVW_at_fermat;          // Step 1: UVW frame at Fermat point
     CoordinateFrame IJK_mirrored;           // Step 2: IJK frame (mirrored across XY)
     CoordinateFrame UVW_prime_aligned;      // Step 3: U'V'W' frame (aligned with origin)
     CoordinateFrame final_frame;            // Step 4: U''V''W'' frame (at end-effector)
     
-    OrientationResult(const Matrix4x4& matrix, const Vector3& fermat,
+    OrientationResult(const Matrix4& matrix, const Vector3& fermat,
                      const Vector3& end_effector, const CoordinateFrame& uvw,
                      const CoordinateFrame& ijk, const CoordinateFrame& uvw_prime,
                      const CoordinateFrame& final)
@@ -103,7 +70,7 @@ private:
                                                    const Vector3& end_effector_position);
     
     // Helper: Create transformation matrix from coordinate frame
-    static Matrix4x4 create_transformation_matrix(const CoordinateFrame& frame);
+    static Matrix4 create_transformation_matrix(const CoordinateFrame& frame);
     
     // Helper: Calculate normal to ABC plane
     static Vector3 calculate_plane_normal(const Vector3& A_point,

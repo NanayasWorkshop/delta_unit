@@ -4,6 +4,7 @@ Compact Dynamic Motor Module Test
 """
 import sys
 import os
+import numpy as np
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -46,7 +47,14 @@ def main():
             base_original_seg_num = result.original_segment_numbers[level_idx]
             
             print(f"--- Segment {base_original_seg_num} ---")
-            print(f"  Position: ({level_data.base_segment_position.x:.3f}, {level_data.base_segment_position.y:.3f}, {level_data.base_segment_position.z:.3f})")
+            
+            # Handle Eigen vector access - it should now return a numpy array
+            pos = level_data.base_segment_position
+            if hasattr(pos, 'shape'):  # It's a numpy array
+                print(f"  Position: ({pos[0]:.3f}, {pos[1]:.3f}, {pos[2]:.3f})")
+            else:  # Fallback if it's still Eigen
+                print(f"  Position: Eigen vector (conversion issue)")
+            
             print(f"  Motors: z_A={level_data.z_A:.3f}, z_B={level_data.z_B:.3f}, z_C={level_data.z_C:.3f}")
             print(f"  Joints: prismatic={level_data.prismatic_joint:.3f}, roll={level_data.roll_joint:.1f}°, pitch={level_data.pitch_joint:.1f}°")
         

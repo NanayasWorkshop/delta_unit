@@ -44,7 +44,7 @@ Vector3 FabrikInitialization::calculate_joint_position(int robot_segment_index, 
     // Calculate the base Z position for this segment
     for (int i = 0; i < robot_segment_index; i++) {
         Vector3 prev_segment_end = calculate_segment_end_effector_position(i);
-        base_z = prev_segment_end.z;
+        base_z = prev_segment_end.z();  // Fixed: Use .z() instead of .z
     }
     
     // Calculate positions within this segment
@@ -101,7 +101,7 @@ FabrikChain FabrikInitialization::create_straight_chain(int num_robot_segments) 
         
         // Calculate base Z for this segment
         if (seg > 0) {
-            base_z = calculate_segment_end_effector_position(seg - 1).z;
+            base_z = calculate_segment_end_effector_position(seg - 1).z();  // Fixed: Use .z() instead of .z
         }
         
         // Spherical joint position

@@ -1,52 +1,16 @@
 #ifndef DELTA_MATH_UTILS_HPP
 #define DELTA_MATH_UTILS_HPP
 
-#include <array>
+#include <Eigen/Dense>
 #include <cmath>
 #include "constants.hpp"
 
 namespace delta {
 
-// 3D Point/Vector structure
-struct Vector3 {
-    double x, y, z;
-    
-    Vector3(double x = 0, double y = 0, double z = 0) : x(x), y(y), z(z) {}
-    
-    Vector3 operator-(const Vector3& other) const {
-        return Vector3(x - other.x, y - other.y, z - other.z);
-    }
-    
-    Vector3 operator+(const Vector3& other) const {
-        return Vector3(x + other.x, y + other.y, z + other.z);
-    }
-    
-    Vector3 operator*(double scalar) const {
-        return Vector3(x * scalar, y * scalar, z * scalar);
-    }
-    
-    // Add missing division operator
-    Vector3 operator/(double scalar) const {
-        if (scalar == 0.0) {
-            // Handle division by zero - return zero vector
-            return Vector3(0, 0, 0);
-        }
-        return Vector3(x / scalar, y / scalar, z / scalar);
-    }
-    
-    double dot(const Vector3& other) const {
-        return x * other.x + y * other.y + z * other.z;
-    }
-    
-    double norm() const {
-        return std::sqrt(x*x + y*y + z*z);
-    }
-    
-    Vector3 normalized() const {
-        double n = norm();
-        return (n > 1e-10) ? Vector3(x/n, y/n, z/n) : Vector3(0, 0, 0);
-    }
-};
+// Use Eigen types as our foundation
+using Vector3 = Eigen::Vector3d;
+using Matrix3 = Eigen::Matrix3d;
+using Matrix4 = Eigen::Matrix4d;
 
 // Calculate base positions in XY plane
 inline Vector3 get_base_position_A() {

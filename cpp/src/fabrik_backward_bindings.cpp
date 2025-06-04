@@ -19,9 +19,9 @@ PYBIND11_MODULE(fabrik_backward, m) {
         .def_readonly("iteration_history", &delta::FabrikBackwardResult::iteration_history)
         .def("__repr__", [](const delta::FabrikBackwardResult& r) {
             return "FabrikBackwardResult(target=(" + 
-                   std::to_string(r.target_position.x) + "," +
-                   std::to_string(r.target_position.y) + "," + 
-                   std::to_string(r.target_position.z) + 
+                   std::to_string(r.target_position.x()) + "," +
+                   std::to_string(r.target_position.y()) + "," + 
+                   std::to_string(r.target_position.z()) + 
                    "), reachable=" + (r.target_reachable ? "True" : "False") +
                    ", iterations=" + std::to_string(r.iterations_used) +
                    ", final_dist=" + std::to_string(r.distance_to_base) + ")";

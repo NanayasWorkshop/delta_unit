@@ -23,9 +23,9 @@ PYBIND11_MODULE(joint_state_module, m) {
             return "JointStateResult(prismatic=" + std::to_string(r.prismatic_joint) + 
                    ", roll=" + std::to_string(r.roll_joint) + 
                    ", pitch=" + std::to_string(r.pitch_joint) + 
-                   ", direction=(" + std::to_string(r.direction_vector.x) + "," +
-                   std::to_string(r.direction_vector.y) + "," + 
-                   std::to_string(r.direction_vector.z) + "))";
+                   ", direction=(" + std::to_string(r.direction_vector.x()) + "," +
+                   std::to_string(r.direction_vector.y()) + "," + 
+                   std::to_string(r.direction_vector.z()) + "))";
         });
     
     // JointStateModule - main interface

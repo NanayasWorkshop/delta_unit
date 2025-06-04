@@ -61,7 +61,7 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
 
         // If there are subsequent segments in current_input_positions (more than just the base), transform them
         if (current_input_positions.size() > 1) {
-            double rotation_matrix[3][3];
+            Matrix3 rotation_matrix;
             create_uvw_to_xyz_rotation_matrix(current_level_data.uvw_u_axis,
                                             current_level_data.uvw_v_axis,
                                             current_level_data.uvw_w_axis,
@@ -76,7 +76,7 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
                 Vector3 translated_pos = segment_to_transform - base_pos_for_this_level;
                 
                 // Step 2: Rotate to align this level's UVW with XYZ
-                Vector3 transformed_pos = apply_rotation_matrix(translated_pos, rotation_matrix);
+                Vector3 transformed_pos = rotation_matrix * translated_pos;
 
                 // Store in the current level's "transformed_segment_*" lists
                 current_level_data.transformed_segment_original_numbers.push_back(original_segment_number);
@@ -109,7 +109,7 @@ void MotorModule::extract_original_segment_data(const FabrikSolutionResult& fabr
     }
 }
 
-void MotorModule::create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, double rotation_matrix[3][3]) {
+void MotorModule::create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, Matrix3& rotation_matrix) {
     // Ensure we align U+ with X+, V+ with Y+, W+ with Z+
     // We need to check the dot products and flip axes if necessary
     
@@ -118,33 +118,25 @@ void MotorModule::create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const
     Vector3 aligned_w = w_axis;
     
     // Check if U-axis is pointing in the negative X direction
-    if (u_axis.x < 0) {
-        aligned_u = Vector3(-u_axis.x, -u_axis.y, -u_axis.z);
+    if (u_axis.x() < 0) {
+        aligned_u = -u_axis;
     }
     
     // Check if V-axis is pointing in the negative Y direction
-    if (v_axis.y < 0) {
-        aligned_v = Vector3(-v_axis.x, -v_axis.y, -v_axis.z);
+    if (v_axis.y() < 0) {
+        aligned_v = -v_axis;
     }
     
     // Check if W-axis is pointing in the negative Z direction
-    if (w_axis.z < 0) {
-        aligned_w = Vector3(-w_axis.x, -w_axis.y, -w_axis.z);
+    if (w_axis.z() < 0) {
+        aligned_w = -w_axis;
     }
     
     // Create rotation matrix with aligned axes
     // The rows of this matrix are the aligned U, V, W vectors
-    rotation_matrix[0][0] = aligned_u.x; rotation_matrix[0][1] = aligned_u.y; rotation_matrix[0][2] = aligned_u.z;
-    rotation_matrix[1][0] = aligned_v.x; rotation_matrix[1][1] = aligned_v.y; rotation_matrix[1][2] = aligned_v.z;
-    rotation_matrix[2][0] = aligned_w.x; rotation_matrix[2][1] = aligned_w.y; rotation_matrix[2][2] = aligned_w.z;
-}
-
-Vector3 MotorModule::apply_rotation_matrix(const Vector3& vector, const double rotation_matrix[3][3]) {
-    return Vector3(
-        rotation_matrix[0][0] * vector.x + rotation_matrix[0][1] * vector.y + rotation_matrix[0][2] * vector.z,
-        rotation_matrix[1][0] * vector.x + rotation_matrix[1][1] * vector.y + rotation_matrix[1][2] * vector.z,
-        rotation_matrix[2][0] * vector.x + rotation_matrix[2][1] * vector.y + rotation_matrix[2][2] * vector.z
-    );
+    rotation_matrix.row(0) = aligned_u.transpose();
+    rotation_matrix.row(1) = aligned_v.transpose();
+    rotation_matrix.row(2) = aligned_w.transpose();
 }
 
 } // namespace delta

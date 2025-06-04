@@ -20,9 +20,9 @@ PYBIND11_MODULE(kinematics_module, m) {
         .def_readonly("joint_state_data", &delta::KinematicsResult::joint_state_data)
         .def("__repr__", [](const delta::KinematicsResult& r) {
             return "KinematicsResult(end_effector=(" + 
-                   std::to_string(r.end_effector_position.x) + "," +
-                   std::to_string(r.end_effector_position.y) + "," + 
-                   std::to_string(r.end_effector_position.z) + 
+                   std::to_string(r.end_effector_position.x()) + "," +
+                   std::to_string(r.end_effector_position.y()) + "," + 
+                   std::to_string(r.end_effector_position.z()) + 
                    "), prismatic_length=" + std::to_string(r.prismatic_joint_length) + 
                    ", angle_from_z=" + std::to_string(r.input_angle_from_z) + ")";
         });

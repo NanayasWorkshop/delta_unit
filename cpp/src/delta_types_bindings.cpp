@@ -1,63 +1,20 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
 #include "math_utils.hpp"
 #include "orientation_module.hpp"
 
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_types, m) {
-    m.doc() = "Delta robot shared types module - Foundation for all other modules";
+    m.doc() = "Delta robot shared types module - Foundation for all other modules (Eigen-based)";
     
-    // Vector3 - Primary registration (used by all modules)
-    pybind11::class_<delta::Vector3>(m, "Vector3")
-        .def(pybind11::init<double, double, double>(), "x"_a = 0, "y"_a = 0, "z"_a = 0)
-        .def_readwrite("x", &delta::Vector3::x)
-        .def_readwrite("y", &delta::Vector3::y)
-        .def_readwrite("z", &delta::Vector3::z)
-        .def("norm", &delta::Vector3::norm, "Calculate vector magnitude")
-        .def("normalized", &delta::Vector3::normalized, "Return normalized vector")
-        .def("dot", &delta::Vector3::dot, "Calculate dot product with another vector")
-        .def("__add__", &delta::Vector3::operator+)
-        .def("__sub__", &delta::Vector3::operator-)
-        .def("__mul__", &delta::Vector3::operator*)
-        .def("__truediv__", &delta::Vector3::operator/, "Division operator for scalar division")
-        .def("__repr__", [](const delta::Vector3& v) {
-            return "Vector3(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
-        });
+    // Vector3 (Eigen::Vector3d) - Automatic conversion via pybind11/eigen.h
+    // No manual registration needed! pybind11/eigen.h handles this automatically
     
-    // Matrix4x4 - Primary registration
-    pybind11::class_<delta::Matrix4x4>(m, "Matrix4x4")
-        .def(pybind11::init<>())
-        .def("__getitem__", [](const delta::Matrix4x4& m, pybind11::tuple indices) {
-            if (indices.size() != 2) throw pybind11::index_error();
-            int i = indices[0].cast<int>();
-            int j = indices[1].cast<int>();
-            if (i < 0 || i >= 4 || j < 0 || j >= 4) throw pybind11::index_error();
-            return m.data[i][j];
-        })
-        .def("__setitem__", [](delta::Matrix4x4& m, pybind11::tuple indices, double value) {
-            if (indices.size() != 2) throw pybind11::index_error();
-            int i = indices[0].cast<int>();
-            int j = indices[1].cast<int>();
-            if (i < 0 || i >= 4 || j < 0 || j >= 4) throw pybind11::index_error();
-            m.data[i][j] = value;
-        })
-        .def("set_translation", &delta::Matrix4x4::set_translation)
-        .def("set_rotation", &delta::Matrix4x4::set_rotation)
-        .def("__repr__", [](const delta::Matrix4x4& m) {
-            std::string result = "Matrix4x4(\n";
-            for (int i = 0; i < 4; i++) {
-                result += "  [";
-                for (int j = 0; j < 4; j++) {
-                    result += std::to_string(m.data[i][j]);
-                    if (j < 3) result += ", ";
-                }
-                result += "]\n";
-            }
-            result += ")";
-            return result;
-        });
+    // Matrix4 (Eigen::Matrix4d) - Automatic conversion via pybind11/eigen.h
+    // No manual registration needed! pybind11/eigen.h handles this automatically
     
-    // CoordinateFrame - Primary registration
+    // CoordinateFrame - Manual registration (uses Vector3 internally)
     pybind11::class_<delta::CoordinateFrame>(m, "CoordinateFrame")
         .def(pybind11::init<const delta::Vector3&, const delta::Vector3&, 
                            const delta::Vector3&, const delta::Vector3&>(),
@@ -69,10 +26,10 @@ PYBIND11_MODULE(delta_types, m) {
         .def_readonly("w_axis", &delta::CoordinateFrame::w_axis)
         .def("__repr__", [](const delta::CoordinateFrame& f) {
             return std::string("CoordinateFrame(origin=") + 
-                   "(" + std::to_string(f.origin.x) + "," + std::to_string(f.origin.y) + "," + std::to_string(f.origin.z) + ")" +
-                   ", u=" + "(" + std::to_string(f.u_axis.x) + "," + std::to_string(f.u_axis.y) + "," + std::to_string(f.u_axis.z) + ")" +
-                   ", v=" + "(" + std::to_string(f.v_axis.x) + "," + std::to_string(f.v_axis.y) + "," + std::to_string(f.v_axis.z) + ")" +
-                   ", w=" + "(" + std::to_string(f.w_axis.x) + "," + std::to_string(f.w_axis.y) + "," + std::to_string(f.w_axis.z) + "))";
+                   "(" + std::to_string(f.origin.x()) + "," + std::to_string(f.origin.y()) + "," + std::to_string(f.origin.z()) + ")" +
+                   ", u=" + "(" + std::to_string(f.u_axis.x()) + "," + std::to_string(f.u_axis.y()) + "," + std::to_string(f.u_axis.z()) + ")" +
+                   ", v=" + "(" + std::to_string(f.v_axis.x()) + "," + std::to_string(f.v_axis.y()) + "," + std::to_string(f.v_axis.z()) + ")" +
+                   ", w=" + "(" + std::to_string(f.w_axis.x()) + "," + std::to_string(f.w_axis.y()) + "," + std::to_string(f.w_axis.z()) + "))";
         });
     
     // Constants module integration - expose essential constants from constants.hpp
@@ -104,4 +61,13 @@ PYBIND11_MODULE(delta_types, m) {
     m.def("get_base_position_A", &delta::get_base_position_A, "Get base A position");
     m.def("get_base_position_B", &delta::get_base_position_B, "Get base B position");
     m.def("get_base_position_C", &delta::get_base_position_C, "Get base C position");
+    
+    // Convenience aliases for Python users
+    m.def("Vector3", [](double x=0, double y=0, double z=0) { 
+        return delta::Vector3(x, y, z); 
+    }, "x"_a=0, "y"_a=0, "z"_a=0, "Create Vector3 (Eigen::Vector3d)");
+    
+    m.def("Matrix4", []() { 
+        return delta::Matrix4::Identity(); 
+    }, "Create 4x4 identity matrix (Eigen::Matrix4d)");
 }

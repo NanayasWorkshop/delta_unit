@@ -1,14 +1,16 @@
 """
-Delta Robot Python Package
+Delta Robot Python Package (Eigen-based)
 """
+import numpy as np
 
 # Import foundation types first
 try:
     from . import delta_types
     
     # Make types available at package level
-    Vector3 = delta_types.Vector3
-    Matrix4x4 = delta_types.Matrix4x4
+    # Note: Vector3 and Matrix4 are now Eigen types, automatically converted by pybind11
+    Vector3 = delta_types.Vector3  # Convenience constructor function
+    Matrix4 = delta_types.Matrix4  # Convenience constructor function
     CoordinateFrame = delta_types.CoordinateFrame
     
     # Make ALL constants available - Robot Physical Constants
@@ -73,8 +75,10 @@ types = delta_types
 
 def calculate_complete_pipeline(x, y, z):
     """Complete delta robot calculation pipeline."""
+    # Create Eigen Vector3 using numpy array (automatic conversion)
+    direction_vector = np.array([x, y, z])
+    
     fermat_result = fermat.FermatModule.calculate(x, y, z)
-    direction_vector = Vector3(x, y, z)
     joint_result = joint_state.JointStateModule.calculate_from_fermat(direction_vector, fermat_result)
     kinematics_result = kinematics.KinematicsModule.calculate(x, y, z)
     orientation_result = orientation.OrientationModule.calculate(x, y, z)
@@ -97,7 +101,8 @@ def solve_fabrik_ik(target_x, target_y, target_z, num_segments=None, tolerance=N
     if tolerance is None:
         tolerance = FABRIK_TOLERANCE
     
-    target = Vector3(target_x, target_y, target_z)
+    # Create Eigen Vector3 using numpy array (automatic conversion)
+    target = np.array([target_x, target_y, target_z])
     return fabrik.solve_delta_robot(num_segments, target, tolerance)
 
 def calculate_motors(target_x, target_y, target_z):
@@ -126,6 +131,7 @@ def verify_installation():
     
     if all_good:
         print("✓ All delta robot modules imported successfully!")
+        print("✓ Using Eigen for optimized linear algebra operations")
         return True
     else:
         print("Module status:")
@@ -135,3 +141,28 @@ def verify_installation():
 
 # Calculate SPHERICAL_JOINT_CONE_ANGLE_DEG for backward compatibility
 SPHERICAL_JOINT_CONE_ANGLE_DEG = rad_to_deg(SPHERICAL_JOINT_CONE_ANGLE_RAD)
+
+# Convenience functions for creating Eigen vectors/matrices from Python
+def create_vector3(x=0, y=0, z=0):
+    """Create Vector3 (Eigen::Vector3d) from coordinates."""
+    return np.array([x, y, z])
+
+def create_matrix4_identity():
+    """Create 4x4 identity matrix (Eigen::Matrix4d)."""
+    return np.eye(4)
+
+# Export the convenience functions
+__all__ = [
+    'Vector3', 'Matrix4', 'CoordinateFrame',
+    'fermat', 'joint_state', 'kinematics', 'orientation',
+    'fabrik_init', 'fabrik_back', 'fabrik_fwd', 'fabrik', 'motor',
+    'calculate_complete_pipeline', 'solve_fabrik_ik', 'calculate_motors',
+    'verify_installation', 'create_vector3', 'create_matrix4_identity',
+    'rad_to_deg', 'deg_to_rad',
+    'get_base_position_A', 'get_base_position_B', 'get_base_position_C',
+    # Constants
+    'ROBOT_RADIUS', 'MIN_HEIGHT', 'WORKING_HEIGHT', 'MOTOR_LIMIT',
+    'DEFAULT_ROBOT_SEGMENTS', 'SPHERICAL_JOINT_CONE_ANGLE_RAD', 'SPHERICAL_JOINT_CONE_ANGLE_DEG',
+    'FABRIK_TOLERANCE', 'FABRIK_MAX_ITERATIONS', 'EPSILON_MATH',
+    'BASE_A_ANGLE', 'BASE_B_ANGLE', 'BASE_C_ANGLE'
+]

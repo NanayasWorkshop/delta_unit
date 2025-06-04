@@ -20,9 +20,9 @@ PYBIND11_MODULE(orientation_module, m) {
         .def_readonly("final_frame", &delta::OrientationResult::final_frame)             // Step 4
         .def("__repr__", [](const delta::OrientationResult& r) {
             return "OrientationResult(end_effector=(" + 
-                   std::to_string(r.end_effector_position.x) + "," +
-                   std::to_string(r.end_effector_position.y) + "," + 
-                   std::to_string(r.end_effector_position.z) + 
+                   std::to_string(r.end_effector_position.x()) + "," +
+                   std::to_string(r.end_effector_position.y()) + "," + 
+                   std::to_string(r.end_effector_position.z()) + 
                    "), transformation_matrix=4x4, all_frames_available=True)";
         });
     

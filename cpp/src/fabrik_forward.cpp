@@ -277,11 +277,11 @@ Vector3 FabrikForward::transform_to_z_reference(const Vector3& reference_directi
     
     // If reference is -Z, simple flip
     if ((ref_norm + z_axis).norm() < 1e-6) {
-        return Vector3(-target_norm.x, -target_norm.y, -target_norm.z);
+        return -target_norm;
     }
     
     // Calculate rotation axis (cross product of reference and Z+)
-    Vector3 rotation_axis = cross_product(ref_norm, z_axis);
+    Vector3 rotation_axis = ref_norm.cross(z_axis);
     double rotation_axis_length = rotation_axis.norm();
     
     if (rotation_axis_length < 1e-6) {
@@ -289,7 +289,7 @@ Vector3 FabrikForward::transform_to_z_reference(const Vector3& reference_directi
         return target_norm;
     }
     
-    rotation_axis = rotation_axis / rotation_axis_length;
+    rotation_axis = rotation_axis.normalized();
     
     // Calculate rotation angle
     double cos_angle = ref_norm.dot(z_axis);
@@ -322,7 +322,7 @@ double FabrikForward::calculate_prismatic_from_direction(const Vector3& transfor
         double half_angle = angle_from_z / 2.0;
         
         // Find axis of rotation (cross product of z_axis and input)
-        Vector3 rotation_axis = cross_product(z_axis, normalized_input);
+        Vector3 rotation_axis = z_axis.cross(normalized_input);
         
         // If vectors are opposite, choose arbitrary perpendicular axis
         if (rotation_axis.norm() < 1e-10) {
@@ -332,16 +332,7 @@ double FabrikForward::calculate_prismatic_from_direction(const Vector3& transfor
         }
         
         // Rotate Z axis by half_angle around rotation_axis using Rodrigues' rotation
-        double cos_half = std::cos(half_angle);
-        double sin_half = std::sin(half_angle);
-        
-        Vector3 k_cross_z = cross_product(rotation_axis, z_axis);
-        double k_dot_z = rotation_axis.dot(z_axis);
-        
-        half_angle_vector = z_axis * cos_half + 
-                           k_cross_z * sin_half + 
-                           rotation_axis * (k_dot_z * (1.0 - cos_half));
-        
+        half_angle_vector = rodrigues_rotation(z_axis, rotation_axis, half_angle);
         half_angle_vector = half_angle_vector.normalized();
     }
     
@@ -374,21 +365,13 @@ bool FabrikForward::has_converged_forward(const Vector3& current_base,
     return distance <= tolerance;
 }
 
-Vector3 FabrikForward::cross_product(const Vector3& a, const Vector3& b) {
-    return Vector3(
-        a.y * b.z - a.z * b.y,
-        a.z * b.x - a.x * b.z,
-        a.x * b.y - a.y * b.x
-    );
-}
-
 Vector3 FabrikForward::rodrigues_rotation(const Vector3& v, const Vector3& axis, double angle) {
     double cos_angle = std::cos(angle);
     double sin_angle = std::sin(angle);
     
     Vector3 v_parallel = axis * axis.dot(v);
     Vector3 v_perpendicular = v - v_parallel;
-    Vector3 w = cross_product(axis, v_perpendicular);
+    Vector3 w = axis.cross(v_perpendicular);
     
     return v_parallel + v_perpendicular * cos_angle + w * sin_angle;
 }

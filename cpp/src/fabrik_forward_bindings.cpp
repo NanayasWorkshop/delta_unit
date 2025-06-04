@@ -16,12 +16,12 @@ PYBIND11_MODULE(fabrik_forward, m) {
         .def_readonly("segment_index", &delta::SegmentDirectionPair::segment_index)
         .def("__repr__", [](const delta::SegmentDirectionPair& p) {
             return "SegmentDirectionPair(segment=" + std::to_string(p.segment_index) + 
-                   ", ref=(" + std::to_string(p.reference_direction.x) + "," + 
-                   std::to_string(p.reference_direction.y) + "," + 
-                   std::to_string(p.reference_direction.z) + 
-                   "), target=(" + std::to_string(p.target_direction.x) + "," + 
-                   std::to_string(p.target_direction.y) + "," + 
-                   std::to_string(p.target_direction.z) + "))";
+                   ", ref=(" + std::to_string(p.reference_direction.x()) + "," + 
+                   std::to_string(p.reference_direction.y()) + "," + 
+                   std::to_string(p.reference_direction.z()) + 
+                   "), target=(" + std::to_string(p.target_direction.x()) + "," + 
+                   std::to_string(p.target_direction.y()) + "," + 
+                   std::to_string(p.target_direction.z()) + "))";
         });
     
     // SegmentProperties structure
@@ -47,9 +47,9 @@ PYBIND11_MODULE(fabrik_forward, m) {
         .def_readonly("recalculated_lengths", &delta::FabrikForwardResult::recalculated_lengths)
         .def("__repr__", [](const delta::FabrikForwardResult& r) {
             return "FabrikForwardResult(base=(" + 
-                   std::to_string(r.base_position.x) + "," +
-                   std::to_string(r.base_position.y) + "," + 
-                   std::to_string(r.base_position.z) + 
+                   std::to_string(r.base_position.x()) + "," +
+                   std::to_string(r.base_position.y()) + "," + 
+                   std::to_string(r.base_position.z()) + 
                    "), constraints_ok=" + (r.constraints_satisfied ? "True" : "False") +
                    ", iterations=" + std::to_string(r.iterations_used) + ")";
         });

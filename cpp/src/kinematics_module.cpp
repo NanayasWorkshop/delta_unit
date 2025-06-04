@@ -50,8 +50,6 @@ double KinematicsModule::calculate_angle_from_z_axis(const Vector3& vector) {
     return std::acos(dot_product);
 }
 
-
-
 Vector3 KinematicsModule::calculate_end_effector_position(double prismatic_length, 
                                                         const Vector3& original_input) {
     // Step 1: Calculate Joint H position

@@ -10,9 +10,9 @@ FermatResult FermatModule::calculate(const Vector3& direction) {
     FermatCalculation calc(direction);
     
     return FermatResult(
-        calc.A_point.z,
-        calc.B_point.z, 
-        calc.C_point.z,
+        calc.A_point.z(),
+        calc.B_point.z(), 
+        calc.C_point.z(),
         calc.fermat_point
     );
 }

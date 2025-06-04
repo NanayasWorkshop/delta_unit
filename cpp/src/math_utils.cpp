@@ -9,12 +9,12 @@ double calculate_z_intersection(double base_x, double base_y, const Vector3& nor
     // Solve for z: normal.x * base_x + normal.y * base_y + normal.z * z = 0
     // z = -(normal.x * base_x + normal.y * base_y) / normal.z
     
-    if (std::abs(normal.z) < 1e-10) {
+    if (std::abs(normal.z()) < 1e-10) {
         // Normal is horizontal, no intersection or infinite intersections
         return 0.0;
     }
     
-    return -(normal.x * base_x + normal.y * base_y) / normal.z;
+    return -(normal.x() * base_x + normal.y() * base_y) / normal.z();
 }
 
 FermatCalculation::FermatCalculation(const Vector3& direction) {
@@ -27,14 +27,14 @@ FermatCalculation::FermatCalculation(const Vector3& direction) {
     Vector3 base_C = get_base_position_C();
     
     // Calculate Z intersections with plane
-    double z_A = calculate_z_intersection(base_A.x, base_A.y, normal);
-    double z_B = calculate_z_intersection(base_B.x, base_B.y, normal);
-    double z_C = calculate_z_intersection(base_C.x, base_C.y, normal);
+    double z_A = calculate_z_intersection(base_A.x(), base_A.y(), normal);
+    double z_B = calculate_z_intersection(base_B.x(), base_B.y(), normal);
+    double z_C = calculate_z_intersection(base_C.x(), base_C.y(), normal);
     
     // Create 3D points
-    A_point = Vector3(base_A.x, base_A.y, z_A);
-    B_point = Vector3(base_B.x, base_B.y, z_B);
-    C_point = Vector3(base_C.x, base_C.y, z_C);
+    A_point = Vector3(base_A.x(), base_A.y(), z_A);
+    B_point = Vector3(base_B.x(), base_B.y(), z_B);
+    C_point = Vector3(base_C.x(), base_C.y(), z_C);
     
     // Calculate vectors
     AB = B_point - A_point;
@@ -47,9 +47,9 @@ FermatCalculation::FermatCalculation(const Vector3& direction) {
     side_c = AB.norm();
     
     // Calculate angles using dot product
-    Vector3 neg_CA = CA * (-1.0);
-    Vector3 neg_AB = AB * (-1.0);
-    Vector3 neg_BC = BC * (-1.0);
+    Vector3 neg_CA = -CA;
+    Vector3 neg_AB = -AB;
+    Vector3 neg_BC = -BC;
     
     alpha = std::acos(std::max(-1.0, std::min(1.0, neg_CA.dot(AB) / (CA.norm() * AB.norm()))));
     beta = std::acos(std::max(-1.0, std::min(1.0, neg_AB.dot(BC) / (AB.norm() * BC.norm()))));
@@ -67,9 +67,9 @@ FermatCalculation::FermatCalculation(const Vector3& direction) {
     
     // Calculate Fermat point
     double total_lambda = lambda_A + lambda_B + lambda_C;
-    double fermat_x = (lambda_A * A_point.x + lambda_B * B_point.x + lambda_C * C_point.x) / total_lambda;
-    double fermat_y = (lambda_A * A_point.y + lambda_B * B_point.y + lambda_C * C_point.y) / total_lambda;
-    double fermat_z = (lambda_A * A_point.z + lambda_B * B_point.z + lambda_C * C_point.z) / total_lambda;
+    double fermat_x = (lambda_A * A_point.x() + lambda_B * B_point.x() + lambda_C * C_point.x()) / total_lambda;
+    double fermat_y = (lambda_A * A_point.y() + lambda_B * B_point.y() + lambda_C * C_point.y()) / total_lambda;
+    double fermat_z = (lambda_A * A_point.z() + lambda_B * B_point.z() + lambda_C * C_point.z()) / total_lambda;
     
     fermat_point = Vector3(fermat_x, fermat_y, fermat_z);
 }

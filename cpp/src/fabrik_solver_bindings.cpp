@@ -19,9 +19,9 @@ PYBIND11_MODULE(fabrik_solver, m) {
         .def_readonly("fabrik_distance_from_base", &delta::SegmentEndEffectorData::fabrik_distance_from_base)
         .def("__repr__", [](const delta::SegmentEndEffectorData& s) {
             return "SegmentEndEffectorData(segment=" + std::to_string(s.segment_number) + 
-                   ", pos=(" + std::to_string(s.end_effector_position.x) + "," + 
-                   std::to_string(s.end_effector_position.y) + "," + 
-                   std::to_string(s.end_effector_position.z) + 
+                   ", pos=(" + std::to_string(s.end_effector_position.x()) + "," + 
+                   std::to_string(s.end_effector_position.y()) + "," + 
+                   std::to_string(s.end_effector_position.z()) + 
                    "), prismatic=" + std::to_string(s.prismatic_length) + 
                    ", distance=" + std::to_string(s.fabrik_distance_from_base) + ")";
         });
@@ -41,9 +41,9 @@ PYBIND11_MODULE(fabrik_solver, m) {
         .def_readonly("segment_end_effectors", &delta::FabrikSolutionResult::segment_end_effectors)  // NEW!
         .def("__repr__", [](const delta::FabrikSolutionResult& r) {
             return "FabrikSolutionResult(target=(" + 
-                   std::to_string(r.target_position.x) + "," +
-                   std::to_string(r.target_position.y) + "," + 
-                   std::to_string(r.target_position.z) + 
+                   std::to_string(r.target_position.x()) + "," +
+                   std::to_string(r.target_position.y()) + "," + 
+                   std::to_string(r.target_position.z()) + 
                    "), converged=" + (r.converged ? "True" : "False") +
                    ", error=" + std::to_string(r.final_error) +
                    ", total_iterations=" + std::to_string(r.total_iterations) +

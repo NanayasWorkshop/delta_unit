@@ -18,9 +18,9 @@ PYBIND11_MODULE(fermat_module, m) {
             return "FermatResult(z_A=" + std::to_string(r.z_A) + 
                    ", z_B=" + std::to_string(r.z_B) + 
                    ", z_C=" + std::to_string(r.z_C) + 
-                   ", fermat=(" + std::to_string(r.fermat_point.x) + "," +
-                   std::to_string(r.fermat_point.y) + "," + 
-                   std::to_string(r.fermat_point.z) + "))";
+                   ", fermat=(" + std::to_string(r.fermat_point.x()) + "," +
+                   std::to_string(r.fermat_point.y()) + "," + 
+                   std::to_string(r.fermat_point.z()) + "))";
         });
     
     // FermatModule - main interface
