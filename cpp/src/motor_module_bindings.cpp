@@ -37,6 +37,7 @@ PYBIND11_MODULE(motor_module, m) {
         .def_readonly("target_position", &delta::MotorResult::target_position)
         .def_readonly("fabrik_converged", &delta::MotorResult::fabrik_converged)
         .def_readonly("fabrik_error", &delta::MotorResult::fabrik_error)
+        .def_readonly("solve_time_ms", &delta::MotorResult::solve_time_ms)
         .def_readonly("original_segment_numbers", &delta::MotorResult::original_segment_numbers)
         .def_readonly("original_segment_positions", &delta::MotorResult::original_segment_positions)
         .def_readonly("levels", &delta::MotorResult::levels)
@@ -47,7 +48,8 @@ PYBIND11_MODULE(motor_module, m) {
                    std::to_string(r.target_position.z) + 
                    "), converged=" + (r.fabrik_converged ? "True" : "False") +
                    ", original_segments=" + std::to_string(r.original_segment_numbers.size()) +
-                   ", levels=" + std::to_string(r.levels.size()) + ")";
+                   ", levels=" + std::to_string(r.levels.size()) + 
+                   ", time=" + std::to_string(r.solve_time_ms) + "ms)";
         });
     
     // MotorModule class

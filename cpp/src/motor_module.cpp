@@ -16,7 +16,8 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
     FabrikSolutionResult fabrik_result = FabrikSolver::solve(init_result.chain, target_position, 
                                                            FABRIK_TOLERANCE, FABRIK_MAX_ITERATIONS);
     
-    MotorResult motor_result(target_position, fabrik_result.converged, fabrik_result.final_error);
+    // Pass timing information from FABRIK result
+    MotorResult motor_result(target_position, fabrik_result.converged, fabrik_result.final_error, fabrik_result.solve_time_ms);
     
     extract_original_segment_data(fabrik_result, motor_result);
     

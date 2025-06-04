@@ -39,6 +39,7 @@ struct MotorResult {
     Vector3 target_position;                    // Input target
     bool fabrik_converged;                      // FABRIK convergence status
     double fabrik_error;                        // FABRIK final error
+    double solve_time_ms;                       // FABRIK solve time in milliseconds
     
     // Original segment data from FABRIK
     std::vector<int> original_segment_numbers;      // [1, 2, 3, ...]
@@ -47,8 +48,8 @@ struct MotorResult {
     // Data for each level of transformation
     std::vector<LevelData> levels;
 
-    MotorResult(const Vector3& target, bool converged, double error)
-        : target_position(target), fabrik_converged(converged), fabrik_error(error) {}
+    MotorResult(const Vector3& target, bool converged, double error, double time_ms = 0.0)
+        : target_position(target), fabrik_converged(converged), fabrik_error(error), solve_time_ms(time_ms) {}
 };
 
 class MotorModule {
