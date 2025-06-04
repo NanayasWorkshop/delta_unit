@@ -16,12 +16,12 @@ try:
     MIN_HEIGHT = delta_types.MIN_HEIGHT
     WORKING_HEIGHT = delta_types.WORKING_HEIGHT
     MOTOR_LIMIT = delta_types.MOTOR_LIMIT
-    WORKSPACE_CONE_ANGLE_RAD = delta_types.WORKSPACE_CONE_ANGLE_RAD
+    # REMOVED: WORKSPACE_CONE_ANGLE_RAD (unused constant)
     
     # FABRIK Configuration Constants
     DEFAULT_ROBOT_SEGMENTS = delta_types.DEFAULT_ROBOT_SEGMENTS
     SPHERICAL_JOINT_CONE_ANGLE_RAD = delta_types.SPHERICAL_JOINT_CONE_ANGLE_RAD
-    SPHERICAL_JOINT_CONE_ANGLE_DEG = delta_types.SPHERICAL_JOINT_CONE_ANGLE_DEG
+    # REMOVED: SPHERICAL_JOINT_CONE_ANGLE_DEG (redundant constant)
     
     # FABRIK Solver Constants
     FABRIK_TOLERANCE = delta_types.FABRIK_TOLERANCE
@@ -172,12 +172,11 @@ def show_constants():
     print(f"  MIN_HEIGHT = {MIN_HEIGHT}")
     print(f"  WORKING_HEIGHT = {WORKING_HEIGHT}")
     print(f"  MOTOR_LIMIT = {MOTOR_LIMIT}")
-    print(f"  WORKSPACE_CONE_ANGLE_RAD = {WORKSPACE_CONE_ANGLE_RAD}")
     print()
     print("FABRIK CONFIGURATION:")
     print(f"  DEFAULT_ROBOT_SEGMENTS = {DEFAULT_ROBOT_SEGMENTS}")
     print(f"  SPHERICAL_JOINT_CONE_ANGLE_RAD = {SPHERICAL_JOINT_CONE_ANGLE_RAD}")
-    print(f"  SPHERICAL_JOINT_CONE_ANGLE_DEG = {SPHERICAL_JOINT_CONE_ANGLE_DEG}")
+    print(f"  SPHERICAL_JOINT_CONE_ANGLE_DEG = {rad_to_deg(SPHERICAL_JOINT_CONE_ANGLE_RAD):.1f}°")  # Calculate degrees from radians
     print()
     print("FABRIK SOLVER:")
     print(f"  FABRIK_TOLERANCE = {FABRIK_TOLERANCE}")
