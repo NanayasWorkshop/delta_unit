@@ -1,5 +1,6 @@
 #include "fabrik_initialization.hpp"
 #include <cmath>
+#include <iostream>
 
 namespace delta {
 
@@ -9,6 +10,26 @@ FabrikInitResult FabrikInitialization::initialize_straight_up(int num_robot_segm
     
     // Calculate final end-effector position
     Vector3 final_end_effector = calculate_segment_end_effector_position(num_robot_segments - 1);
+    
+    // Calculate total reach
+    double total_reach = calculate_total_reach(chain);
+    
+    return FabrikInitResult(chain, final_end_effector, total_reach);
+}
+
+FabrikInitResult FabrikInitialization::initialize_from_joint_positions(int num_robot_segments,
+                                                                      const std::vector<Vector3>& joint_positions) {
+    // Validate input
+    if (!validate_joint_positions(num_robot_segments, joint_positions)) {
+        std::cerr << "Warning: Invalid joint positions provided. Falling back to straight-up initialization." << std::endl;
+        return initialize_straight_up(num_robot_segments);
+    }
+    
+    // Create chain from provided positions
+    FabrikChain chain = create_chain_from_positions(num_robot_segments, joint_positions);
+    
+    // Final end-effector is the last joint position
+    Vector3 final_end_effector = joint_positions.back();
     
     // Calculate total reach
     double total_reach = calculate_total_reach(chain);
@@ -44,7 +65,7 @@ Vector3 FabrikInitialization::calculate_joint_position(int robot_segment_index, 
     // Calculate the base Z position for this segment
     for (int i = 0; i < robot_segment_index; i++) {
         Vector3 prev_segment_end = calculate_segment_end_effector_position(i);
-        base_z = prev_segment_end.z();  // Fixed: Use .z() instead of .z
+        base_z = prev_segment_end.z();
     }
     
     // Calculate positions within this segment
@@ -77,6 +98,50 @@ int FabrikInitialization::get_total_joints(int num_robot_segments) {
     return num_robot_segments + 1;
 }
 
+// NEW: Validation functions
+
+bool FabrikInitialization::validate_joint_positions(int num_robot_segments, const std::vector<Vector3>& joint_positions) {
+    // Check joint count: should be num_robot_segments + 2 (base + segments + end-effector)
+    int expected_joints = num_robot_segments + 2;
+    if (static_cast<int>(joint_positions.size()) != expected_joints) {
+        std::cerr << "Expected " << expected_joints << " joint positions, got " << joint_positions.size() << std::endl;
+        return false;
+    }
+    
+    // Check that base is at origin
+    if (!is_base_at_origin(joint_positions[0])) {
+        std::cerr << "Base joint must be at origin (0,0,0), got (" 
+                  << joint_positions[0].x() << ", " << joint_positions[0].y() << ", " << joint_positions[0].z() << ")" << std::endl;
+        return false;
+    }
+    
+    // Check that joints are reasonably spaced (basic sanity check)
+    for (int i = 1; i < static_cast<int>(joint_positions.size()); i++) {
+        Vector3 prev_joint = joint_positions[i-1];
+        Vector3 curr_joint = joint_positions[i];
+        double distance = (curr_joint - prev_joint).norm();
+        
+        // Check minimum distance (avoid degenerate segments)
+        if (distance < 1.0) {  // Minimum 1mm spacing
+            std::cerr << "Joints " << i-1 << " and " << i << " are too close: " << distance << "mm" << std::endl;
+            return false;
+        }
+        
+        // Check maximum distance (avoid impossible segments)
+        double max_reasonable_distance = 2000.0;  // 2m maximum segment length
+        if (distance > max_reasonable_distance) {
+            std::cerr << "Joints " << i-1 << " and " << i << " are too far apart: " << distance << "mm" << std::endl;
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+bool FabrikInitialization::is_base_at_origin(const Vector3& base_position, double tolerance) {
+    return base_position.norm() <= tolerance;
+}
+
 // Private methods
 
 double FabrikInitialization::calculate_hypotenuse_distance(double prismatic_length) {
@@ -101,7 +166,7 @@ FabrikChain FabrikInitialization::create_straight_chain(int num_robot_segments) 
         
         // Calculate base Z for this segment
         if (seg > 0) {
-            base_z = calculate_segment_end_effector_position(seg - 1).z();  // Fixed: Use .z() instead of .z
+            base_z = calculate_segment_end_effector_position(seg - 1).z();
         }
         
         // Spherical joint position
@@ -119,6 +184,37 @@ FabrikChain FabrikInitialization::create_straight_chain(int num_robot_segments) 
     chain.joints.push_back(FabrikJoint(final_pos, JointType::END_EFFECTOR));
     
     // Create segments
+    for (int i = 0; i < static_cast<int>(chain.joints.size()) - 1; i++) {
+        Vector3 start_pos = chain.joints[i].position;
+        Vector3 end_pos = chain.joints[i + 1].position;
+        double length = (end_pos - start_pos).norm();
+        
+        chain.segments.push_back(FabrikSegment(i, i + 1, length));
+    }
+    
+    return chain;
+}
+
+FabrikChain FabrikInitialization::create_chain_from_positions(int num_robot_segments, const std::vector<Vector3>& joint_positions) {
+    FabrikChain chain(num_robot_segments);
+    
+    // Create joints from provided positions
+    // Joint 0: Base (FIXED_BASE)
+    chain.joints.push_back(FabrikJoint(joint_positions[0], JointType::FIXED_BASE));
+    
+    // Joints 1 to num_robot_segments: Spherical joints (SPHERICAL_120)
+    for (int i = 1; i <= num_robot_segments; i++) {
+        chain.joints.push_back(FabrikJoint(
+            joint_positions[i], 
+            JointType::SPHERICAL_120, 
+            SPHERICAL_JOINT_CONE_ANGLE_RAD
+        ));
+    }
+    
+    // Final joint: End-effector (END_EFFECTOR)
+    chain.joints.push_back(FabrikJoint(joint_positions.back(), JointType::END_EFFECTOR));
+    
+    // Create segments between consecutive joints
     for (int i = 0; i < static_cast<int>(chain.joints.size()) - 1; i++) {
         Vector3 start_pos = chain.joints[i].position;
         Vector3 end_pos = chain.joints[i + 1].position;

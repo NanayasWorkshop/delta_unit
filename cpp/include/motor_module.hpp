@@ -6,6 +6,7 @@
 #include "kinematics_module.hpp"
 #include "orientation_module.hpp"
 #include <vector>
+#include <optional>
 
 namespace delta {
 
@@ -45,6 +46,9 @@ struct MotorResult {
     std::vector<int> original_segment_numbers;      // [1, 2, 3, ...]
     std::vector<Vector3> original_segment_positions; // Actual segment end-effector positions in global frame
     
+    // NEW: FABRIK joint positions from solved chain
+    std::vector<Vector3> fabrik_joint_positions;    // Joint positions from final_chain.joints
+    
     // Data for each level of transformation
     std::vector<LevelData> levels;
 
@@ -58,9 +62,18 @@ public:
     static MotorResult calculate_motors(double target_x, double target_y, double target_z);
     static MotorResult calculate_motors(const Vector3& target_position);
     
+    // NEW: Calculate motor positions with optional current joint positions
+    static MotorResult calculate_motors(double target_x, double target_y, double target_z,
+                                      const std::optional<std::vector<Vector3>>& current_joint_positions);
+    static MotorResult calculate_motors(const Vector3& target_position,
+                                      const std::optional<std::vector<Vector3>>& current_joint_positions);
+    
 private:
     // Extract segment positions from FABRIK result
     static void extract_original_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result);
+    
+    // NEW: Extract joint positions from FABRIK result
+    static void extract_fabrik_joint_positions(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result);
     
     // Helper: Create rotation matrix from UVW to XYZ alignment
     static void create_uvw_to_xyz_rotation_matrix(const Vector3& u_axis, const Vector3& v_axis, const Vector3& w_axis, Matrix3& rotation_matrix);

@@ -6,7 +6,7 @@
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(motor_module, m) {
-    m.doc() = "Delta robot motor orchestration module (dynamic levels)";
+    m.doc() = "Delta robot motor orchestration module (dynamic levels with joint position support)";
     
     // LevelData structure with proper Eigen handling
     pybind11::class_<delta::LevelData>(m, "LevelData")
@@ -56,6 +56,10 @@ PYBIND11_MODULE(motor_module, m) {
         .def_property_readonly("original_segment_positions", [](const delta::MotorResult& r) {
             return r.original_segment_positions;
         })
+        .def_property_readonly("fabrik_joint_positions", [](const delta::MotorResult& r) {
+            // NEW: Expose FABRIK joint positions
+            return r.fabrik_joint_positions;
+        })
         .def_readonly("levels", &delta::MotorResult::levels)
         .def("__repr__", [](const delta::MotorResult& r) {
             return "MotorResult(target=(" + 
@@ -64,11 +68,12 @@ PYBIND11_MODULE(motor_module, m) {
                    std::to_string(r.target_position.z()) + 
                    "), converged=" + (r.fabrik_converged ? "True" : "False") +
                    ", original_segments=" + std::to_string(r.original_segment_numbers.size()) +
+                   ", joints=" + std::to_string(r.fabrik_joint_positions.size()) +
                    ", levels=" + std::to_string(r.levels.size()) + 
                    ", time=" + std::to_string(r.solve_time_ms) + "ms)";
         });
     
-    // MotorModule class
+    // MotorModule class with updated overloads
     pybind11::class_<delta::MotorModule>(m, "MotorModule")
         .def_static("calculate_motors", 
                    [](double x, double y, double z) { 
@@ -81,5 +86,17 @@ PYBIND11_MODULE(motor_module, m) {
                        return delta::MotorModule::calculate_motors(target); 
                    },
                    "target_position"_a,
-                   "Calculate motor positions for target Vector3");
+                   "Calculate motor positions for target Vector3")
+        .def_static("calculate_motors", 
+                   [](double x, double y, double z, const std::vector<delta::Vector3>& current_joints) { 
+                       return delta::MotorModule::calculate_motors(x, y, z, current_joints); 
+                   },
+                   "target_x"_a, "target_y"_a, "target_z"_a, "current_joint_positions"_a,
+                   "Calculate motor positions with current joint positions")
+        .def_static("calculate_motors", 
+                   [](const delta::Vector3& target, const std::vector<delta::Vector3>& current_joints) { 
+                       return delta::MotorModule::calculate_motors(target, current_joints); 
+                   },
+                   "target_position"_a, "current_joint_positions"_a,
+                   "Calculate motor positions for target Vector3 with current joint positions");
 }

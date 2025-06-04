@@ -38,7 +38,7 @@ struct FabrikSegment {
 struct FabrikChain {
     std::vector<FabrikJoint> joints;       // All joints in order
     std::vector<FabrikSegment> segments;   // All segments
-    int num_robot_segments;                // Number of robot segments (3 in our example)
+    int num_robot_segments;                // Number of robot segments (8 in your example)
     
     FabrikChain(int robot_segments) : num_robot_segments(robot_segments) {}
 };
@@ -58,6 +58,10 @@ public:
     // Main interface: Initialize chain with N robot segments
     static FabrikInitResult initialize_straight_up(int num_robot_segments = DEFAULT_ROBOT_SEGMENTS);
     
+    // NEW: Initialize from provided joint positions
+    static FabrikInitResult initialize_from_joint_positions(int num_robot_segments,
+                                                           const std::vector<Vector3>& joint_positions);
+    
     // Initialize with custom direction (for later)
     static FabrikInitResult initialize_with_direction(int num_robot_segments, 
                                                      const Vector3& direction);
@@ -70,10 +74,15 @@ public:
     static double get_total_reach(int num_robot_segments);
     static int get_total_joints(int num_robot_segments);
     
+    // NEW: Validation functions
+    static bool validate_joint_positions(int num_robot_segments, const std::vector<Vector3>& joint_positions);
+    static bool is_base_at_origin(const Vector3& base_position, double tolerance = 1e-6);
+    
 private:
     // Internal calculation methods
     static double calculate_hypotenuse_distance(double prismatic_length = 0.0);
     static FabrikChain create_straight_chain(int num_robot_segments);
+    static FabrikChain create_chain_from_positions(int num_robot_segments, const std::vector<Vector3>& joint_positions);
     static double calculate_total_reach(const FabrikChain& chain);
     static Vector3 calculate_segment_end_effector_position(int segment_index);
 };

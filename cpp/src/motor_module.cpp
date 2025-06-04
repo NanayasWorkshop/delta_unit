@@ -1,6 +1,8 @@
 #include "motor_module.hpp"
 #include "fabrik_initialization.hpp"
 #include <cmath>
+#include <iostream>
+#include <optional>
 
 namespace delta {
 
@@ -9,8 +11,27 @@ MotorResult MotorModule::calculate_motors(double target_x, double target_y, doub
 }
 
 MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
+    return calculate_motors(target_position, std::nullopt);
+}
+
+MotorResult MotorModule::calculate_motors(double target_x, double target_y, double target_z,
+                                        const std::optional<std::vector<Vector3>>& current_joint_positions) {
+    return calculate_motors(Vector3(target_x, target_y, target_z), current_joint_positions);
+}
+
+MotorResult MotorModule::calculate_motors(const Vector3& target_position,
+                                        const std::optional<std::vector<Vector3>>& current_joint_positions) {
     // Step 1: Initialize FABRIK chain
-    FabrikInitResult init_result = FabrikInitialization::initialize_straight_up(DEFAULT_ROBOT_SEGMENTS);
+    FabrikInitResult init_result = (current_joint_positions.has_value()) 
+        ? FabrikInitialization::initialize_from_joint_positions(DEFAULT_ROBOT_SEGMENTS, current_joint_positions.value())
+        : FabrikInitialization::initialize_straight_up(DEFAULT_ROBOT_SEGMENTS);
+    
+    if (current_joint_positions.has_value()) {
+        std::cout << "Initializing FABRIK from provided joint positions (" 
+                  << current_joint_positions->size() << " positions)" << std::endl;
+    } else {
+        std::cout << "Initializing FABRIK from straight-up configuration" << std::endl;
+    }
     
     // Step 2: Solve FABRIK to target
     FabrikSolutionResult fabrik_result = FabrikSolver::solve(init_result.chain, target_position, 
@@ -19,7 +40,9 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position) {
     // Pass timing information from FABRIK result
     MotorResult motor_result(target_position, fabrik_result.converged, fabrik_result.final_error, fabrik_result.solve_time_ms);
     
+    // Extract segment data and joint positions from FABRIK result
     extract_original_segment_data(fabrik_result, motor_result);
+    extract_fabrik_joint_positions(fabrik_result, motor_result);
     
     if (motor_result.original_segment_positions.empty()) {
         return motor_result; // No segments, nothing to process
@@ -106,6 +129,15 @@ void MotorModule::extract_original_segment_data(const FabrikSolutionResult& fabr
     for (const auto& seg_data : fabrik_result.segment_end_effectors) {
         motor_result.original_segment_numbers.push_back(seg_data.segment_number);
         motor_result.original_segment_positions.push_back(seg_data.end_effector_position);
+    }
+}
+
+void MotorModule::extract_fabrik_joint_positions(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result) {
+    // Extract joint positions from the solved FABRIK chain
+    motor_result.fabrik_joint_positions.clear();
+    
+    for (const auto& joint : fabrik_result.final_chain.joints) {
+        motor_result.fabrik_joint_positions.push_back(joint.position);
     }
 }
 

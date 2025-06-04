@@ -78,6 +78,10 @@ PYBIND11_MODULE(fabrik_initialization, m) {
                    &delta::FabrikInitialization::initialize_straight_up,
                    "num_robot_segments"_a = delta::DEFAULT_ROBOT_SEGMENTS,
                    "Initialize robot chain in straight up configuration")
+        .def_static("initialize_from_joint_positions",
+                   &delta::FabrikInitialization::initialize_from_joint_positions,
+                   "num_robot_segments"_a, "joint_positions"_a,
+                   "Initialize robot chain from provided joint positions")
         .def_static("initialize_with_direction",
                    &delta::FabrikInitialization::initialize_with_direction,
                    "num_robot_segments"_a, "direction"_a,
@@ -97,7 +101,15 @@ PYBIND11_MODULE(fabrik_initialization, m) {
         .def_static("get_total_joints",
                    &delta::FabrikInitialization::get_total_joints,
                    "num_robot_segments"_a,
-                   "Get total number of joints for N segments");
+                   "Get total number of joints for N segments")
+        .def_static("validate_joint_positions",
+                   &delta::FabrikInitialization::validate_joint_positions,
+                   "num_robot_segments"_a, "joint_positions"_a,
+                   "Validate joint positions for initialization")
+        .def_static("is_base_at_origin",
+                   &delta::FabrikInitialization::is_base_at_origin,
+                   "base_position"_a, "tolerance"_a = 1e-6,
+                   "Check if base position is at origin");
     
     // REMOVED: Redundant constant exposure - rely on delta_types module instead
     // Constants are now centralized in delta_types_bindings.cpp
