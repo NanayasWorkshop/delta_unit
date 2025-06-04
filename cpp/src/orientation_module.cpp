@@ -42,7 +42,7 @@ OrientationResult OrientationModule::calculate_from_kinematics(const KinematicsR
     // Create transformation matrix
     Matrix4x4 transformation = create_transformation_matrix(final_frame);
     
-    // NEW! Return all coordinate frames
+    // Return all coordinate frames
     return OrientationResult(transformation, fermat_point, end_effector, 
                            UVW_frame, IJK_frame, aligned_frame, final_frame);
 }
@@ -51,8 +51,9 @@ CoordinateFrame OrientationModule::create_UVW_frame(const Vector3& fermat_point,
                                                    const Vector3& A_point,
                                                    const Vector3& B_point,
                                                    const Vector3& C_point) {
-    // U-axis: Fermat point → A point
-    Vector3 u_axis = (A_point - fermat_point).normalized();
+    
+    // V-axis: Fermat point → A point (aligns with Y-axis since A is on Y-axis)
+    Vector3 v_axis = (A_point - fermat_point).normalized();
     
     // W-axis: Normal to ABC plane (pointing +Z direction)
     Vector3 w_axis = calculate_plane_normal(A_point, B_point, C_point);
@@ -61,13 +62,13 @@ CoordinateFrame OrientationModule::create_UVW_frame(const Vector3& fermat_point,
         w_axis = Vector3(-w_axis.x, -w_axis.y, -w_axis.z);
     }
     
-    // V-axis: U × W (right-hand rule)
-    Vector3 v_axis(
-        u_axis.y * w_axis.z - u_axis.z * w_axis.y,
-        u_axis.z * w_axis.x - u_axis.x * w_axis.z,
-        u_axis.x * w_axis.y - u_axis.y * w_axis.x
+    // U-axis: V × W (cross product) - guarantees perfect orthogonality AND right-handed system
+    Vector3 u_axis(
+        v_axis.y * w_axis.z - v_axis.z * w_axis.y,
+        v_axis.z * w_axis.x - v_axis.x * w_axis.z,
+        v_axis.x * w_axis.y - v_axis.y * w_axis.x
     );
-    v_axis = v_axis.normalized();
+    u_axis = u_axis.normalized();
     
     return CoordinateFrame(fermat_point, u_axis, v_axis, w_axis);
 }
@@ -94,7 +95,7 @@ CoordinateFrame OrientationModule::align_with_origin(const CoordinateFrame& uvw_
     
     // 2. Rotation: align IJK axes with XYZ axes
     // We need R such that: R * [I J K] = [X Y Z] = Identity
-    // Therefore: R = [I J K]^(-1)  <<<--- KEY FIX: INVERSE, NOT TRANSPOSE!
+    // Therefore: R = [I J K]^(-1)
     
     // Current IJK axes
     Vector3 ijk_i = ijk_frame.u_axis;
