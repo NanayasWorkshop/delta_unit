@@ -38,7 +38,7 @@ ext_modules = [
     Pybind11Extension(
         "delta_robot.delta_types",
         ["cpp/src/delta_types_bindings.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -47,7 +47,7 @@ ext_modules = [
     Pybind11Extension(
         "delta_robot.fermat_module",
         ["cpp/src/fermat_bindings.cpp", "cpp/src/fermat_module.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -56,7 +56,7 @@ ext_modules = [
     Pybind11Extension(
         "delta_robot.joint_state_module",
         ["cpp/src/joint_state_bindings.cpp", "cpp/src/joint_state.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -66,7 +66,7 @@ ext_modules = [
         "delta_robot.kinematics_module",
         ["cpp/src/kinematics_bindings.cpp", "cpp/src/kinematics_module.cpp", 
          "cpp/src/fermat_module.cpp", "cpp/src/joint_state.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -77,7 +77,7 @@ ext_modules = [
         ["cpp/src/orientation_bindings.cpp", "cpp/src/orientation_module.cpp",
          "cpp/src/kinematics_module.cpp", "cpp/src/fermat_module.cpp", 
          "cpp/src/joint_state.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -86,7 +86,7 @@ ext_modules = [
     Pybind11Extension(
         "delta_robot.fabrik_initialization",
         ["cpp/src/fabrik_initialization_bindings.cpp", "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -96,7 +96,7 @@ ext_modules = [
         "delta_robot.fabrik_backward",
         ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", 
          "cpp/src/fabrik_initialization.cpp", "cpp/src/math_utils.cpp"],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -117,7 +117,7 @@ ext_modules = [
             # Base math utilities
             "cpp/src/math_utils.cpp"
         ],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -140,7 +140,7 @@ ext_modules = [
             # Base math utilities
             "cpp/src/math_utils.cpp"
         ],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -165,7 +165,7 @@ ext_modules = [
             # Base math utilities
             "cpp/src/math_utils.cpp"
         ],
-        include_dirs=["cpp/include", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,

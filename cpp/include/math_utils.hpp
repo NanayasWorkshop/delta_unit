@@ -3,7 +3,7 @@
 
 #include <Eigen/Dense>
 #include <cmath>
-#include "constants.hpp"
+#include "../core/constants.hpp"
 
 namespace delta {
 

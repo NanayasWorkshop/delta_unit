@@ -4,7 +4,7 @@
 #define DELTA_FABRIK_FORWARD_HPP
 
 #include "math_utils.hpp"
-#include "constants.hpp"
+#include "../core/constants.hpp"
 #include "fabrik_initialization.hpp"
 #include "kinematics_module.hpp"
 

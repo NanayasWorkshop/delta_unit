@@ -2,7 +2,7 @@
 #define DELTA_FABRIK_INITIALIZATION_HPP
 
 #include "math_utils.hpp"
-#include "constants.hpp"
+#include "../core/constants.hpp"
 #include <vector>
 
 namespace delta {
