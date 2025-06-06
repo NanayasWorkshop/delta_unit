@@ -1,0 +1,34 @@
+Initializing FABRIK from straight-up configuration
+Target: (0.0, 0.0, 100.0)
+Using straight-up initialization
+--- Segment 1 ---
+  Position: (0.000, 0.000, 146.000)
+  Motors: z_A=-0.000, z_B=-0.000, z_C=0.000
+  Joints: prismatic=0.000, roll=-0.0°, pitch=0.0°
+--- Segment 2 ---
+  Position: (0.000, 0.000, 146.000)
+  Motors: z_A=-0.000, z_B=-0.000, z_C=0.000
+  Joints: prismatic=0.000, roll=-0.0°, pitch=0.0°
+--- Segment 3 ---
+  Position: (0.000, 0.000, 146.000)
+  Motors: z_A=-0.000, z_B=-0.000, z_C=0.000
+  Joints: prismatic=0.000, roll=-0.0°, pitch=0.0°
+--- Segment 4 ---
+  Position: (0.000, 0.000, 0.000)
+  Motors: z_A=0.000, z_B=0.000, z_C=0.000
+  Joints: prismatic=0.000, roll=-0.0°, pitch=0.0°
+--- Segment 5 ---
+  Position: (0.000, 0.000, -146.000)
+  Motors: z_A=0.000, z_B=0.000, z_C=-0.000
+  Joints: prismatic=0.000, roll=-180.0°, pitch=180.0°
+--- Segment 6 ---
+  Position: (0.000, 0.000, -146.000)
+  Motors: z_A=0.000, z_B=0.000, z_C=-0.000
+  Joints: prismatic=0.000, roll=-180.0°, pitch=180.0°
+--- Segment 7 ---
+  Position: (0.000, 0.000, 0.000)
+  Motors: z_A=0.000, z_B=0.000, z_C=0.000
+  Joints: prismatic=0.000, roll=-0.0°, pitch=0.0°
+
+FABRIK converged: False, Error: 46.0000, Time: 0.47ms
+--current "0.000,0.000,0.000:0.000,0.000,73.000:0.000,0.000,219.000:0.000,0.000,365.000:0.000,0.000,511.000:0.000,0.000,365.000:0.000,0.000,219.000:0.000,0.000,73.000:0.000,0.000,146.000"
