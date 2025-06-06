@@ -89,13 +89,13 @@ ext_modules = [
         extra_compile_args=eigen_flags,
     ),
     
-    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen)
+    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen) - PHASE 6: MOVED TO cpp/motor/
     Pybind11Extension(
         "delta_robot.motor_module",
         [
-            # Primary sources
-            "cpp/src/motor_module_bindings.cpp", 
-            "cpp/src/motor_module.cpp",
+            # Primary sources - NOW IN cpp/motor/
+            "cpp/motor/motor_module_bindings.cpp", 
+            "cpp/motor/motor_module.cpp",
             # FABRIK solver dependencies (complete chain)
             "cpp/fabrik/fabrik_solver.cpp",
             "cpp/fabrik/fabrik_backward.cpp",
@@ -110,7 +110,7 @@ ext_modules = [
             "cpp/core/math_utils.cpp",
             "cpp/core/constraint_utils.cpp"
         ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", "cpp/motor", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
