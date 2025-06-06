@@ -1,0 +1,40 @@
+{
+  "metadata": {
+    "total_primitives": 4,
+    "sphere_count": 1,
+    "box_count": 2,
+    "cylinder_count": 1
+  },
+  "spheres": [
+    {
+      "center": [100.000, 50.000, 200.000],
+      "radius": 75.000,
+      "quaternion": [0.000, 0.000, 0.000, 1.000],
+      "is_uniform_scale": true
+    }
+  ],
+  "boxes": [
+    {
+      "center": [-150.000, 100.000, 300.000],
+      "size": [100.000, 50.000, 200.000],
+      "quaternion": [0.000, 0.000, 0.000, 1.000],
+      "is_axis_aligned": true
+    },
+    {
+      "center": [200.000, -100.000, 250.000],
+      "size": [80.000, 80.000, 150.000],
+      "quaternion": [0.000, 0.000, 0.383, 0.924],
+      "is_axis_aligned": false
+    }
+  ],
+  "cylinders": [
+    {
+      "center": [0.000, -200.000, 180.000],
+      "radius": 60.000,
+      "height": 120.000,
+      "quaternion": [0.000, 0.000, 0.000, 1.000],
+      "is_circular": true,
+      "is_axis_aligned": true
+    }
+  ]
+}

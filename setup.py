@@ -34,16 +34,19 @@ eigen_flags = [
 ]
 
 ext_modules = [
-    # CONSOLIDATED MODULE - Replaces all 4 separate modules (70% code reduction)
+    # CONSOLIDATED MODULE - Includes new collision utilities
     Pybind11Extension(
         "delta_robot.delta_robot_complete",
         [
             # Single consolidated binding file
             "cpp/src/delta_robot_complete_bindings.cpp",
             
-            # All implementation files (same as before)
+            # All implementation files
             "cpp/core/math_utils.cpp",
             "cpp/core/constraint_utils.cpp",
+            
+            # NEW: Collision utilities
+            "cpp/collision/collision_utils.cpp",
             
             # Kinematics implementations
             "cpp/kinematics/fermat_module.cpp",
@@ -60,7 +63,15 @@ ext_modules = [
             # Motor implementation
             "cpp/motor/motor_module.cpp"
         ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", "cpp/motor", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=[
+            "cpp/include", 
+            "cpp/core", 
+            "cpp/collision",  # NEW: Collision include directory
+            "cpp/fabrik", 
+            "cpp/kinematics", 
+            "cpp/motor", 
+            pybind11.get_include()
+        ] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
@@ -76,6 +87,7 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "numpy",  # Required for Eigen integration
+        "matplotlib",  # NEW: Required for collision visualization
     ],
     package_data={
         'delta_robot': ['*.so'],
