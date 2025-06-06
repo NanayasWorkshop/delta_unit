@@ -34,88 +34,38 @@ eigen_flags = [
 ]
 
 ext_modules = [
-    # Delta Types module - Foundation module with shared types (EIGEN-BASED)
+    # CONSOLIDATED MODULE - Replaces all 4 separate modules (70% code reduction)
     Pybind11Extension(
-        "delta_robot.delta_types",
-        ["cpp/src/delta_types_bindings.cpp", "cpp/core/math_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    
-    # CONSOLIDATED KINEMATICS MODULE - Replaces 4 separate modules (MAJOR SIMPLIFICATION!)
-    Pybind11Extension(
-        "delta_robot.kinematics_complete",
+        "delta_robot.delta_robot_complete",
         [
-            # Consolidated binding file
-            "cpp/kinematics/kinematics_bindings.cpp",
-            # All kinematics implementation files
+            # Single consolidated binding file
+            "cpp/src/delta_robot_complete_bindings.cpp",
+            
+            # All implementation files (same as before)
+            "cpp/core/math_utils.cpp",
+            "cpp/core/constraint_utils.cpp",
+            
+            # Kinematics implementations
             "cpp/kinematics/fermat_module.cpp",
-            "cpp/kinematics/joint_state.cpp",
+            "cpp/kinematics/joint_state.cpp", 
             "cpp/kinematics/kinematics_module.cpp",
             "cpp/kinematics/orientation_module.cpp",
-            # Base utilities
-            "cpp/core/math_utils.cpp"
-        ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    
-    # CONSOLIDATED FABRIK MODULE - Replaces 4 separate modules (from Phase 3)
-    Pybind11Extension(
-        "delta_robot.fabrik_complete",
-        [
-            # Consolidated binding file
-            "cpp/fabrik/fabrik_bindings.cpp",
-            # All FABRIK implementation files
+            
+            # FABRIK implementations
             "cpp/fabrik/fabrik_initialization.cpp",
             "cpp/fabrik/fabrik_backward.cpp",
             "cpp/fabrik/fabrik_forward.cpp",
             "cpp/fabrik/fabrik_solver.cpp",
-            # Kinematics dependencies (required by fabrik_forward.cpp)
-            "cpp/kinematics/kinematics_module.cpp",
-            "cpp/kinematics/fermat_module.cpp", 
-            "cpp/kinematics/joint_state.cpp",
-            # Base utilities
-            "cpp/core/math_utils.cpp",
-            "cpp/core/constraint_utils.cpp"
-        ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    
-    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen) - PHASE 6: MOVED TO cpp/motor/
-    Pybind11Extension(
-        "delta_robot.motor_module",
-        [
-            # Primary sources - NOW IN cpp/motor/
-            "cpp/motor/motor_module_bindings.cpp", 
-            "cpp/motor/motor_module.cpp",
-            # FABRIK solver dependencies (complete chain)
-            "cpp/fabrik/fabrik_solver.cpp",
-            "cpp/fabrik/fabrik_backward.cpp",
-            "cpp/fabrik/fabrik_forward.cpp",
-            "cpp/fabrik/fabrik_initialization.cpp",
-            # Kinematics and Orientation dependencies
-            "cpp/kinematics/kinematics_module.cpp",
-            "cpp/kinematics/orientation_module.cpp",
-            "cpp/kinematics/fermat_module.cpp", 
-            "cpp/kinematics/joint_state.cpp",
-            # Base math utilities
-            "cpp/core/math_utils.cpp",
-            "cpp/core/constraint_utils.cpp"
+            
+            # Motor implementation
+            "cpp/motor/motor_module.cpp"
         ],
         include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", "cpp/motor", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    ]
+]
 
 setup(
     name="delta_unit",

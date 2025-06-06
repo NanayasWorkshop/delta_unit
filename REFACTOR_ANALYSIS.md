@@ -261,3 +261,16 @@ cpp/
 
 **Last Updated:** June 6, 2025 - ENTIRE REFACTOR COMPLETE! 🚀
 **Next Steps:** Ready for any new development on the perfectly organized codebase!
+
+
+### Command Style Pattern:
+```bash
+# Always give exact commands like this:
+mkdir -p cpp/core
+mv source destination
+grep -r "pattern" files/
+sed -i 's/old/new/' file
+python3 main.py test > output.txt
+diff baseline.txt output.txt
+git add . && git commit -m "descriptive message"
+```
