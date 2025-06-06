@@ -43,21 +43,40 @@ try:
 except ImportError as e:
     raise ImportError(f"Failed to import delta_types module: {e}")
 
-# Import other modules
+# Import consolidated kinematics module
 try:
-    from . import fermat_module as fermat
-    from . import joint_state_module as joint_state
-    from . import kinematics_module as kinematics
-    from . import orientation_module as orientation
+    from . import kinematics_complete
+    
+    # Create convenient aliases that maintain backward compatibility
+    class fermat:
+        FermatModule = kinematics_complete.FermatModule
+        FermatResult = kinematics_complete.FermatResult
+    
+    class joint_state:
+        JointStateModule = kinematics_complete.JointStateModule
+        JointStateResult = kinematics_complete.JointStateResult
+    
+    class kinematics:
+        KinematicsModule = kinematics_complete.KinematicsModule
+        KinematicsResult = kinematics_complete.KinematicsResult
+    
+    class orientation:
+        OrientationModule = kinematics_complete.OrientationModule
+        OrientationResult = kinematics_complete.OrientationResult
+        
 except ImportError as e:
-    raise ImportError(f"Failed to import modules: {e}")
+    raise ImportError(f"Failed to import kinematics modules: {e}")
 
 # Import FABRIK modules
 try:
-    from . import fabrik_initialization as fabrik_init
-    from . import fabrik_backward as fabrik_back
-    from . import fabrik_forward as fabrik_fwd
-    from . import fabrik_solver as fabrik
+    from . import fabrik_complete as fabrik
+    
+    # Create convenient aliases for FABRIK (backward compatibility)
+    fabrik_init = fabrik
+    fabrik_back = fabrik
+    fabrik_fwd = fabrik
+    # Main fabrik is already assigned above
+    
 except ImportError:
     fabrik_init = None
     fabrik_back = None
@@ -116,14 +135,8 @@ def verify_installation():
     """Verify that all modules imported correctly."""
     modules_status = {
         'delta_types': True,
-        'fermat_module': True,
-        'joint_state_module': True,
-        'kinematics_module': True,
-        'orientation_module': True,
-        'fabrik_initialization': fabrik_init is not None,
-        'fabrik_backward': fabrik_back is not None,
-        'fabrik_forward': fabrik_fwd is not None,
-        'fabrik_solver': fabrik is not None,
+        'kinematics_complete': True,  # New consolidated module
+        'fabrik_complete': fabrik is not None,
         'motor_module': motor is not None,
     }
     
@@ -132,6 +145,7 @@ def verify_installation():
     if all_good:
         print("✓ All delta robot modules imported successfully!")
         print("✓ Using Eigen for optimized linear algebra operations")
+        print("✓ Consolidated modules: kinematics_complete, fabrik_complete")
         return True
     else:
         print("Module status:")

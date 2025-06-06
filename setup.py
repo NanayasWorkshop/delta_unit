@@ -43,46 +43,28 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # Fermat module - NO Vector3 registration (uses Eigen)
+    
+    # CONSOLIDATED KINEMATICS MODULE - Replaces 4 separate modules (MAJOR SIMPLIFICATION!)
     Pybind11Extension(
-        "delta_robot.fermat_module",
-        ["cpp/src/fermat_bindings.cpp", "cpp/kinematics/fermat_module.cpp", "cpp/core/math_utils.cpp"],
+        "delta_robot.kinematics_complete",
+        [
+            # Consolidated binding file
+            "cpp/kinematics/kinematics_bindings.cpp",
+            # All kinematics implementation files
+            "cpp/kinematics/fermat_module.cpp",
+            "cpp/kinematics/joint_state.cpp",
+            "cpp/kinematics/kinematics_module.cpp",
+            "cpp/kinematics/orientation_module.cpp",
+            # Base utilities
+            "cpp/core/math_utils.cpp"
+        ],
         include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # Joint state module - NO Vector3 registration (uses Eigen)
-    Pybind11Extension(
-        "delta_robot.joint_state_module",
-        ["cpp/src/joint_state_bindings.cpp", "cpp/kinematics/joint_state.cpp", "cpp/core/math_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # Kinematics module - NO Vector3 registration (uses Eigen)
-    Pybind11Extension(
-        "delta_robot.kinematics_module",
-        ["cpp/src/kinematics_bindings.cpp", "cpp/kinematics/kinematics_module.cpp", 
-         "cpp/kinematics/fermat_module.cpp", "cpp/kinematics/joint_state.cpp", "cpp/core/math_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # Orientation module - NO Vector3/Matrix4x4 registration (uses Eigen)
-    Pybind11Extension(
-        "delta_robot.orientation_module",
-        ["cpp/src/orientation_bindings.cpp", "cpp/kinematics/orientation_module.cpp",
-         "cpp/kinematics/kinematics_module.cpp", "cpp/kinematics/fermat_module.cpp", 
-         "cpp/kinematics/joint_state.cpp", "cpp/core/math_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # CONSOLIDATED FABRIK MODULE - Replaces 4 separate modules (MAJOR SIMPLIFICATION!)
+    
+    # CONSOLIDATED FABRIK MODULE - Replaces 4 separate modules (from Phase 3)
     Pybind11Extension(
         "delta_robot.fabrik_complete",
         [
@@ -106,6 +88,7 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
+    
     # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen)
     Pybind11Extension(
         "delta_robot.motor_module",
