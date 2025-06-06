@@ -28,3 +28,11 @@ git commit -m "Revert back to 28b6f10"
 git push origin main
 
 git clean -fdx
+
+
+git revert --no-commit e4a51e2..HEAD
+git commit -m "Revert back to e4a51e2"
+git push origin main
+
+rm -rf build/
+python3 setup.py build_ext --inplace
