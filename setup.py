@@ -82,39 +82,22 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # FABRIK Initialization module (uses Eigen)
+    # CONSOLIDATED FABRIK MODULE - Replaces 4 separate modules (MAJOR SIMPLIFICATION!)
     Pybind11Extension(
-        "delta_robot.fabrik_initialization",
-        ["cpp/src/fabrik_initialization_bindings.cpp", "cpp/fabrik/fabrik_initialization.cpp", "cpp/core/math_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # FABRIK Backward module (uses Eigen) - FIXED: Added constraint_utils.cpp
-    Pybind11Extension(
-        "delta_robot.fabrik_backward",
-        ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", 
-         "cpp/fabrik/fabrik_initialization.cpp", "cpp/core/math_utils.cpp", "cpp/core/constraint_utils.cpp"],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # FABRIK Forward module (uses Eigen) - FIXED: Added constraint_utils.cpp
-    Pybind11Extension(
-        "delta_robot.fabrik_forward",
+        "delta_robot.fabrik_complete",
         [
-            # Primary sources
-            "cpp/src/fabrik_forward_bindings.cpp", 
-            "cpp/src/fabrik_forward.cpp",
-            # FABRIK dependencies
+            # Consolidated binding file
+            "cpp/fabrik/fabrik_bindings.cpp",
+            # All FABRIK implementation files
             "cpp/fabrik/fabrik_initialization.cpp",
-            # Kinematics chain (required by fabrik_forward.cpp)
+            "cpp/fabrik/fabrik_backward.cpp",
+            "cpp/fabrik/fabrik_forward.cpp",
+            "cpp/fabrik/fabrik_solver.cpp",
+            # Kinematics dependencies (required by fabrik_forward.cpp)
             "cpp/src/kinematics_module.cpp",
             "cpp/src/fermat_module.cpp", 
             "cpp/src/joint_state.cpp",
-            # Base math utilities
+            # Base utilities
             "cpp/core/math_utils.cpp",
             "cpp/core/constraint_utils.cpp"
         ],
@@ -123,31 +106,7 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # FABRIK Solver module - Complete FABRIK algorithm (uses Eigen) - FIXED: Added constraint_utils.cpp
-    Pybind11Extension(
-        "delta_robot.fabrik_solver",
-        [
-            # Primary sources
-            "cpp/src/fabrik_solver_bindings.cpp", 
-            "cpp/src/fabrik_solver.cpp",
-            # FABRIK algorithm dependencies
-            "cpp/src/fabrik_backward.cpp",
-            "cpp/src/fabrik_forward.cpp",
-            "cpp/fabrik/fabrik_initialization.cpp",
-            # Kinematics chain (required by fabrik_forward.cpp)
-            "cpp/src/kinematics_module.cpp",
-            "cpp/src/fermat_module.cpp", 
-            "cpp/src/joint_state.cpp",
-            # Base math utilities
-            "cpp/core/math_utils.cpp",
-            "cpp/core/constraint_utils.cpp"
-        ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", pybind11.get_include()] + eigen_include_dirs,
-        language='c++',
-        cxx_std=17,
-        extra_compile_args=eigen_flags,
-    ),
-    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen) - FIXED: Added constraint_utils.cpp
+    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen)
     Pybind11Extension(
         "delta_robot.motor_module",
         [
@@ -155,9 +114,9 @@ ext_modules = [
             "cpp/src/motor_module_bindings.cpp", 
             "cpp/src/motor_module.cpp",
             # FABRIK solver dependencies (complete chain)
-            "cpp/src/fabrik_solver.cpp",
-            "cpp/src/fabrik_backward.cpp",
-            "cpp/src/fabrik_forward.cpp",
+            "cpp/fabrik/fabrik_solver.cpp",
+            "cpp/fabrik/fabrik_backward.cpp",
+            "cpp/fabrik/fabrik_forward.cpp",
             "cpp/fabrik/fabrik_initialization.cpp",
             # Kinematics and Orientation dependencies
             "cpp/src/kinematics_module.cpp",
