@@ -91,17 +91,17 @@ ext_modules = [
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # FABRIK Backward module (uses Eigen)
+    # FABRIK Backward module (uses Eigen) - FIXED: Added constraint_utils.cpp
     Pybind11Extension(
         "delta_robot.fabrik_backward",
         ["cpp/src/fabrik_backward_bindings.cpp", "cpp/src/fabrik_backward.cpp", 
-         "cpp/src/fabrik_initialization.cpp", "cpp/core/math_utils.cpp"],
+         "cpp/src/fabrik_initialization.cpp", "cpp/core/math_utils.cpp", "cpp/core/constraint_utils.cpp"],
         include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # FABRIK Forward module (uses Eigen)
+    # FABRIK Forward module (uses Eigen) - FIXED: Added constraint_utils.cpp
     Pybind11Extension(
         "delta_robot.fabrik_forward",
         [
@@ -115,14 +115,15 @@ ext_modules = [
             "cpp/src/fermat_module.cpp", 
             "cpp/src/joint_state.cpp",
             # Base math utilities
-            "cpp/core/math_utils.cpp"
+            "cpp/core/math_utils.cpp",
+            "cpp/core/constraint_utils.cpp"
         ],
         include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # FABRIK Solver module - Complete FABRIK algorithm (uses Eigen)
+    # FABRIK Solver module - Complete FABRIK algorithm (uses Eigen) - FIXED: Added constraint_utils.cpp
     Pybind11Extension(
         "delta_robot.fabrik_solver",
         [
@@ -138,14 +139,15 @@ ext_modules = [
             "cpp/src/fermat_module.cpp", 
             "cpp/src/joint_state.cpp",
             # Base math utilities
-            "cpp/core/math_utils.cpp"
+            "cpp/core/math_utils.cpp",
+            "cpp/core/constraint_utils.cpp"
         ],
         include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
     ),
-    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen)
+    # Motor Module - Orchestrates FABRIK + Kinematics + Orientation (uses Eigen) - FIXED: Added constraint_utils.cpp
     Pybind11Extension(
         "delta_robot.motor_module",
         [
@@ -163,7 +165,8 @@ ext_modules = [
             "cpp/src/fermat_module.cpp", 
             "cpp/src/joint_state.cpp",
             # Base math utilities
-            "cpp/core/math_utils.cpp"
+            "cpp/core/math_utils.cpp",
+            "cpp/core/constraint_utils.cpp"
         ],
         include_dirs=["cpp/include", "cpp/core", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
