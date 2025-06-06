@@ -1,7 +1,7 @@
 #ifndef DELTA_KINEMATICS_MODULE_HPP
 #define DELTA_KINEMATICS_MODULE_HPP
 
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 #include "fermat_module.hpp"
 #include "joint_state.hpp"
 

@@ -1,7 +1,7 @@
 #ifndef DELTA_JOINT_STATE_HPP
 #define DELTA_JOINT_STATE_HPP
 
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 #include "fermat_module.hpp"
 
 namespace delta {

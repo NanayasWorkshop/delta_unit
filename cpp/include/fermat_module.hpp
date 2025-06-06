@@ -1,7 +1,7 @@
 #ifndef DELTA_FERMAT_MODULE_HPP
 #define DELTA_FERMAT_MODULE_HPP
 
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 
 namespace delta {
 

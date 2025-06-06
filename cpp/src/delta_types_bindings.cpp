@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/eigen.h>
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 #include "orientation_module.hpp"
 
 using namespace pybind11::literals;

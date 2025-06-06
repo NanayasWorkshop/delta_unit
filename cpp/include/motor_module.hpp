@@ -1,7 +1,7 @@
 #ifndef DELTA_MOTOR_MODULE_HPP
 #define DELTA_MOTOR_MODULE_HPP
 
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 #include "fabrik_solver.hpp"
 #include "kinematics_module.hpp"
 #include "orientation_module.hpp"

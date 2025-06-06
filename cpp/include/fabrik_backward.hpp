@@ -1,7 +1,7 @@
 #ifndef DELTA_FABRIK_BACKWARD_HPP
 #define DELTA_FABRIK_BACKWARD_HPP
 
-#include "math_utils.hpp"
+#include "../core/math_utils.hpp"
 #include "../core/constants.hpp"
 #include "fabrik_initialization.hpp"
 
