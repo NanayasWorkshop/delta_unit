@@ -1,5 +1,5 @@
 """
-Delta Robot Python Package (Consolidated Module)
+Delta Robot Python Package (Consolidated Module with Collision Avoidance)
 """
 import numpy as np
 
@@ -29,8 +29,15 @@ try:
         FabrikInitialization = delta_complete.FabrikInitialization
         FabrikChain = delta_complete.FabrikChain
         FabrikJoint = delta_complete.FabrikJoint
+        FabrikSolverConfig = delta_complete.FabrikSolverConfig
         solve_delta_robot = delta_complete.solve_delta_robot
-        solve_with_spline = delta_complete.solve_with_spline  # NEW!
+        solve_with_spline = delta_complete.solve_with_spline
+        
+    # NEW: Collision avoidance classes
+    class collision:
+        SplineCollisionAvoidance = delta_complete.SplineCollisionAvoidance
+        Obstacle = delta_complete.Obstacle
+        CollisionAvoidanceResult = delta_complete.CollisionAvoidanceResult
         
     class motor:
         MotorModule = delta_complete.MotorModule
@@ -40,6 +47,9 @@ try:
     # Constants from the consolidated module
     FABRIK_TOLERANCE = delta_complete.FABRIK_TOLERANCE
     DEFAULT_ROBOT_SEGMENTS = delta_complete.DEFAULT_ROBOT_SEGMENTS
+    SPLINE_THICKNESS = delta_complete.SPLINE_THICKNESS
+    COLLISION_SAFETY_MARGIN = delta_complete.COLLISION_SAFETY_MARGIN
+    COLLISION_AVOIDANCE_TARGET_TIME_MS = delta_complete.COLLISION_AVOIDANCE_TARGET_TIME_MS
     
 except ImportError as e:
     raise ImportError(f"Failed to import delta_robot_complete module: {e}")
@@ -85,6 +95,56 @@ def calculate_motors(target_x, target_y, target_z):
     """Calculate motor positions using the Motor module."""
     return motor.MotorModule.calculate_motors(target_x, target_y, target_z)
 
+# =============================================================================
+# NEW: COLLISION AVOIDANCE FUNCTIONS
+# =============================================================================
+
+def solve_fabrik_with_collision_avoidance(target_x, target_y, target_z, obstacles, num_segments=None, tolerance=None):
+    """FABRIK inverse kinematics solution with collision avoidance."""
+    if num_segments is None:
+        num_segments = DEFAULT_ROBOT_SEGMENTS
+    if tolerance is None:
+        tolerance = FABRIK_TOLERANCE
+    
+    target = np.array([target_x, target_y, target_z])
+    return delta_complete.solve_delta_robot_safe(num_segments, target, obstacles, tolerance)
+
+def create_sphere_obstacle(x, y, z, radius):
+    """Create a spherical obstacle at given position with specified radius."""
+    return delta_complete.create_sphere_obstacle(x, y, z, radius)
+
+def create_obstacles_from_positions(positions, radii):
+    """Create obstacles from lists of positions and radii."""
+    return delta_complete.create_obstacles_from_positions(positions, radii)
+
+def create_obstacles_from_coordinates(obstacle_data):
+    """Create obstacles from list of (x, y, z, radius) tuples."""
+    return delta_complete.create_obstacles_from_coordinates(obstacle_data)
+
+def check_spline_collision(spline_points, obstacles, thickness=None):
+    """Check if spline collides with obstacles."""
+    if thickness is None:
+        thickness = SPLINE_THICKNESS
+    return delta_complete.check_spline_collision(spline_points, obstacles, thickness)
+
+def avoid_spline_collisions(spline_points, obstacles, thickness=None, safety_margin=None):
+    """Apply collision avoidance to a spline path."""
+    if thickness is None:
+        thickness = SPLINE_THICKNESS
+    if safety_margin is None:
+        safety_margin = COLLISION_SAFETY_MARGIN
+    return collision.SplineCollisionAvoidance.avoid_collisions(spline_points, obstacles)
+
+# =============================================================================
+# CONVENIENCE FUNCTIONS FOR COLLISION-AWARE SOLVING
+# =============================================================================
+
+def solve_delta_robot_safe(num_segments, target, obstacles, tolerance=None):
+    """Solve delta robot with collision avoidance."""
+    if tolerance is None:
+        tolerance = FABRIK_TOLERANCE
+    return delta_complete.solve_delta_robot_safe(num_segments, target, obstacles, tolerance)
+
 def verify_installation():
     """Verify that the consolidated module imported correctly."""
     try:
@@ -92,12 +152,24 @@ def verify_installation():
         result = motor.MotorModule.calculate_motors(100, 50, 300)
         print("✓ Consolidated delta robot module imported successfully!")
         print("✓ All functionality available through single module")
-        print("✓ 70% reduction in binding code achieved")
         
         # Test spline functionality
         spline_result = solve_fabrik_with_spline(100, 50, 300)
         if hasattr(spline_result, 'spline_points') and hasattr(spline_result, 'segment_midpoints'):
             print("✓ Spline visualization support available!")
+        
+        # Test collision avoidance functionality
+        try:
+            test_obstacle = create_sphere_obstacle(50, 0, 200, 30)
+            print("✓ Collision avoidance support available!")
+            
+            # Test collision detection
+            test_spline = [[0, 0, 0], [50, 0, 200], [100, 0, 400]]
+            has_collision = check_spline_collision(test_spline, [test_obstacle], SPLINE_THICKNESS)
+            print(f"✓ Collision detection working (test collision: {has_collision})")
+            
+        except Exception as e:
+            print(f"⚠️  Collision avoidance test failed: {e}")
         
         return True
     except Exception as e:
@@ -109,10 +181,14 @@ def create_vector3(x=0, y=0, z=0):
     """Create Vector3 (numpy array) from coordinates."""
     return np.array([x, y, z])
 
-# Export main interfaces
+# Export main interfaces (updated with collision support)
 __all__ = [
-    'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'motor',
-    'calculate_complete_pipeline', 'solve_fabrik_ik', 'solve_fabrik_with_spline', 'calculate_motors',
+    'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'motor', 'collision',
+    'calculate_complete_pipeline', 'solve_fabrik_ik', 'solve_fabrik_with_spline', 
+    'solve_fabrik_with_collision_avoidance', 'calculate_motors',
+    'create_sphere_obstacle', 'create_obstacles_from_positions', 'create_obstacles_from_coordinates',
+    'check_spline_collision', 'avoid_spline_collisions', 'solve_delta_robot_safe',
     'verify_installation', 'create_vector3',
-    'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS'
+    'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS', 'SPLINE_THICKNESS', 
+    'COLLISION_SAFETY_MARGIN', 'COLLISION_AVOIDANCE_TARGET_TIME_MS'
 ]
