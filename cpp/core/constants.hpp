@@ -20,6 +20,9 @@ constexpr double FABRIK_TOLERANCE = 0.01;                              // Conver
 constexpr int FABRIK_MAX_ITERATIONS = 100;                             // Maximum solver iterations
 constexpr double EPSILON_MATH = 1e-9;                                  // Mathematical epsilon for floating point comparisons
 
+// Collision Detection Constants
+constexpr double COLLISION_PILL_RADIUS = 44.0;                          // Collision pill radius in mm
+
 // Geometry Constants - Base actuator positions (angles in radians)
 constexpr double BASE_A_ANGLE = M_PI / 2.0;                // 90 degrees (top)
 constexpr double BASE_B_ANGLE = -M_PI / 6.0;               // -30 degrees (bottom right)  

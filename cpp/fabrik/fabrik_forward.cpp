@@ -1,7 +1,8 @@
-// fabrik_forward.hpp - Forward iteration module
+// fabrik_forward.cpp - Forward iteration module
 
 #include "fabrik_forward.hpp"
 #include "../core/constraint_utils.hpp"
+#include "../collision/collision_manager.hpp"
 #include "kinematics_module.hpp"
 #include <cmath>
 #include <algorithm>
@@ -75,7 +76,13 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
 
         if (segment_length < EPSILON_MATH) {
             // If segment length is zero, place J_i at J_i-1'
-            updated_chain.joints[i].position = J_prev_prime;
+            Vector3 proposed_position = J_prev_prime;
+            
+            // Validate with collision manager (handles pill updates automatically)
+            Vector3 approved_position = CollisionManager::getInstance().validate_joint_placement(
+                proposed_position, i, PassType::FORWARD, updated_chain);
+            
+            updated_chain.joints[i].position = approved_position;
             continue;
         }
 
@@ -83,7 +90,13 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
         if (i == 1) {
             // Force the first joint to be directly above the base in Z+ direction
             Vector3 final_placement_direction = Vector3(0, 0, 1); // Straight up in Z+
-            updated_chain.joints[i].position = J_prev_prime + final_placement_direction * segment_length;
+            Vector3 proposed_position = J_prev_prime + final_placement_direction * segment_length;
+            
+            // Validate with collision manager (handles pill updates automatically)
+            Vector3 approved_position = CollisionManager::getInstance().validate_joint_placement(
+                proposed_position, i, PassType::FORWARD, updated_chain);
+            
+            updated_chain.joints[i].position = approved_position;
             continue; // Skip cone constraint logic for first joint
         }
 
@@ -116,10 +129,11 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
             }
         }
 
-        // Place J_i' at segment_length distance from J_i-1' in the final direction
+        // Calculate proposed position
+        Vector3 proposed_position;
         if (final_direction.norm() > EPSILON_MATH) {
             Vector3 final_placement_direction = final_direction.normalized();
-            updated_chain.joints[i].position = J_prev_prime + final_placement_direction * segment_length;
+            proposed_position = J_prev_prime + final_placement_direction * segment_length;
         } else {
             // Fallback when direction is zero or invalid
             Vector3 fallback_direction;
@@ -135,8 +149,14 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
                 fallback_direction = Vector3(0, 0, 1);
             }
             
-            updated_chain.joints[i].position = J_prev_prime + fallback_direction.normalized() * segment_length;
+            proposed_position = J_prev_prime + fallback_direction.normalized() * segment_length;
         }
+        
+        // Validate with collision manager (handles pill updates automatically)
+        Vector3 approved_position = CollisionManager::getInstance().validate_joint_placement(
+            proposed_position, i, PassType::FORWARD, updated_chain);
+        
+        updated_chain.joints[i].position = approved_position;
     }
 
     return updated_chain;

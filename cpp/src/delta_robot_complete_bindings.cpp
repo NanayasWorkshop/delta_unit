@@ -1,4 +1,4 @@
-// consolidated_bindings.cpp - ALL modules in one file (SIMPLE VERSION)
+// consolidated_bindings.cpp - ALL modules in one file with collision manager
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
@@ -13,6 +13,7 @@
 #include "kinematics_module.hpp"
 #include "orientation_module.hpp"
 #include "motor_module.hpp"
+#include "collision_manager.hpp"
 
 using namespace pybind11::literals;
 
@@ -27,6 +28,28 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .value("FIXED_BASE", delta::JointType::FIXED_BASE)
         .value("SPHERICAL_120", delta::JointType::SPHERICAL_120)
         .value("END_EFFECTOR", delta::JointType::END_EFFECTOR);
+    
+    pybind11::enum_<delta::PassType>(m, "PassType")
+        .value("BACKWARD", delta::PassType::BACKWARD)
+        .value("FORWARD", delta::PassType::FORWARD);
+    
+    // =============================================================================
+    // COLLISION SYSTEM
+    // =============================================================================
+    
+    pybind11::class_<delta::CollisionPill>(m, "CollisionPill")
+        .def_readonly("start_point", &delta::CollisionPill::start_point)
+        .def_readonly("end_point", &delta::CollisionPill::end_point)
+        .def_readonly("radius", &delta::CollisionPill::radius)
+        .def_readonly("associated_joint_index", &delta::CollisionPill::associated_joint_index)
+        .def("get_center", &delta::CollisionPill::get_center)
+        .def("get_length", &delta::CollisionPill::get_length);
+    
+    // CollisionManager - Only expose functionality, not the class itself
+    m.def("get_collision_pills", []() {
+        return delta::CollisionManager::getInstance().get_active_pills();
+    }, pybind11::return_value_policy::reference_internal,
+       "Get the current active collision pills");
     
     // =============================================================================
     // CORE STRUCTURES
@@ -146,4 +169,5 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     
     m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
     m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
+    m.attr("COLLISION_PILL_RADIUS") = delta::COLLISION_PILL_RADIUS;
 }

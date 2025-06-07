@@ -1,5 +1,6 @@
 #include "fabrik_backward.hpp"
 #include "../core/constraint_utils.hpp"
+#include "../collision/collision_manager.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -72,7 +73,13 @@ FabrikChain FabrikBackward::single_backward_iteration(const FabrikChain& chain_s
 
         if (segment_length < EPSILON_MATH) {
             // If segment length is zero, place J_i at J_i+1'
-            updated_chain.joints[i].position = J_next_prime;
+            Vector3 proposed_position = J_next_prime;
+            
+            // Validate with collision manager (handles pill management automatically)
+            Vector3 approved_position = CollisionManager::getInstance().validate_joint_placement(
+                proposed_position, i, PassType::BACKWARD, updated_chain);
+            
+            updated_chain.joints[i].position = approved_position;
             continue;
         }
 
@@ -105,10 +112,11 @@ FabrikChain FabrikBackward::single_backward_iteration(const FabrikChain& chain_s
             }
         }
 
-        // Place J_i' at segment_length distance from J_i+1' in the final direction
+        // Calculate proposed position
+        Vector3 proposed_position;
         if (final_direction.norm() > EPSILON_MATH) {
             Vector3 final_placement_direction = final_direction.normalized();
-            updated_chain.joints[i].position = J_next_prime + final_placement_direction * segment_length;
+            proposed_position = J_next_prime + final_placement_direction * segment_length;
         } else {
             // Fallback when direction is zero or invalid
             Vector3 fallback_direction;
@@ -127,8 +135,14 @@ FabrikChain FabrikBackward::single_backward_iteration(const FabrikChain& chain_s
                 }
             }
             
-            updated_chain.joints[i].position = J_next_prime + fallback_direction.normalized() * segment_length;
+            proposed_position = J_next_prime + fallback_direction.normalized() * segment_length;
         }
+        
+        // Validate with collision manager (handles pill management automatically)
+        Vector3 approved_position = CollisionManager::getInstance().validate_joint_placement(
+            proposed_position, i, PassType::BACKWARD, updated_chain);
+        
+        updated_chain.joints[i].position = approved_position;
     }
 
     return updated_chain;

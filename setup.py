@@ -45,6 +45,9 @@ ext_modules = [
             "cpp/core/math_utils.cpp",
             "cpp/core/constraint_utils.cpp",
             
+            # NEW: Collision manager
+            "cpp/collision/collision_manager.cpp",
+            
             # Kinematics implementations
             "cpp/kinematics/fermat_module.cpp",
             "cpp/kinematics/joint_state.cpp", 
@@ -60,7 +63,7 @@ ext_modules = [
             # Motor implementation
             "cpp/motor/motor_module.cpp"
         ],
-        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", "cpp/motor", pybind11.get_include()] + eigen_include_dirs,
+        include_dirs=["cpp/include", "cpp/core", "cpp/fabrik", "cpp/kinematics", "cpp/motor", "cpp/collision", pybind11.get_include()] + eigen_include_dirs,
         language='c++',
         cxx_std=17,
         extra_compile_args=eigen_flags,
