@@ -76,6 +76,9 @@ public:
     // Singleton access
     static CollisionManager& getInstance();
     
+    // Debug level control: 0=none, 1=summary, 2=detailed, 3=verbose
+    static void set_debug_level(int level);
+    
     // Main validation function - called for each joint placement
     Vector3 validate_joint_placement(const Vector3& proposed_position,
                                    int joint_index,
@@ -105,6 +108,9 @@ public:
     // Visualization access
     const std::vector<CollisionPill>& get_active_pills() const;
     const std::unordered_map<int, CollisionMesh>& get_active_meshes() const;
+    
+    // Debug and utility functions
+    void print_collision_summary() const;
 
 private:
     CollisionManager() = default;
@@ -144,4 +150,4 @@ private:
 
 } // namespace delta
 
-#endif // DELTA_COLLISION_MANAGER_HPP
+#endif // DELTA_COLLISION_MANAGER_HPP 
