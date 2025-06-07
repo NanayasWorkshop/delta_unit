@@ -45,8 +45,9 @@ ext_modules = [
             "cpp/core/math_utils.cpp",
             "cpp/core/constraint_utils.cpp",
             
-            # NEW: Collision manager
+            # NEW: Collision manager and mesh collision
             "cpp/collision/collision_manager.cpp",
+            "cpp/collision/mesh_collision.cpp",
             
             # Kinematics implementations
             "cpp/kinematics/fermat_module.cpp",

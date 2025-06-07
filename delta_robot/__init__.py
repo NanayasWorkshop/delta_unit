@@ -1,5 +1,5 @@
 """
-Delta Robot Python Package (Consolidated Module)
+Delta Robot Python Package (Consolidated Module with Mesh Collision)
 """
 import numpy as np
 
@@ -35,10 +35,24 @@ try:
         MotorModule = delta_complete.MotorModule
         MotorResult = delta_complete.MotorResult
         LevelData = delta_complete.LevelData
+    
+    class collision:
+        CollisionPill = delta_complete.CollisionPill
+        CollisionMesh = delta_complete.CollisionMesh
+        Triangle = delta_complete.Triangle
+        
+        # Mesh management functions
+        update_mesh = delta_complete.update_collision_mesh
+        remove_mesh = delta_complete.remove_collision_mesh
+        clear_all_meshes = delta_complete.clear_all_collision_meshes
+        get_pills = delta_complete.get_collision_pills
+        get_meshes = delta_complete.get_collision_meshes
         
     # Constants from the consolidated module
     FABRIK_TOLERANCE = delta_complete.FABRIK_TOLERANCE
     DEFAULT_ROBOT_SEGMENTS = delta_complete.DEFAULT_ROBOT_SEGMENTS
+    COLLISION_PILL_RADIUS = delta_complete.COLLISION_PILL_RADIUS
+    MAX_COLLISION_RESOLVE_ATTEMPTS = delta_complete.MAX_COLLISION_RESOLVE_ATTEMPTS
     
 except ImportError as e:
     raise ImportError(f"Failed to import delta_robot_complete module: {e}")
@@ -74,6 +88,43 @@ def calculate_motors(target_x, target_y, target_z):
     """Calculate motor positions using the Motor module."""
     return motor.MotorModule.calculate_motors(target_x, target_y, target_z)
 
+def update_collision_mesh(mesh_id, vertices, faces):
+    """
+    Update collision mesh for dynamic obstacles.
+    
+    Args:
+        mesh_id (int): Unique identifier for the mesh
+        vertices (numpy.ndarray): Nx3 array of vertex positions
+        faces (numpy.ndarray): Mx3 array of triangle face indices
+    """
+    # Ensure correct data types
+    vertices = np.asarray(vertices, dtype=np.float32)
+    faces = np.asarray(faces, dtype=np.int32)
+    
+    # Validate shapes
+    if vertices.ndim != 2 or vertices.shape[1] != 3:
+        raise ValueError("Vertices must be Nx3 array")
+    if faces.ndim != 2 or faces.shape[1] != 3:
+        raise ValueError("Faces must be Mx3 array")
+    
+    return collision.update_mesh(mesh_id, vertices, faces)
+
+def remove_collision_mesh(mesh_id):
+    """Remove collision mesh by ID."""
+    return collision.remove_mesh(mesh_id)
+
+def clear_all_collision_meshes():
+    """Clear all collision meshes."""
+    return collision.clear_all_meshes()
+
+def get_collision_pills():
+    """Get current active collision pills."""
+    return collision.get_pills()
+
+def get_collision_meshes():
+    """Get current active collision meshes."""
+    return collision.get_meshes()
+
 def verify_installation():
     """Verify that the consolidated module imported correctly."""
     try:
@@ -81,8 +132,8 @@ def verify_installation():
         result = motor.MotorModule.calculate_motors(100, 50, 300)
         print("✓ Consolidated delta robot module imported successfully!")
         print("✓ All functionality available through single module")
-        print("✓ 70% reduction in binding code achieved")
-        print("✓ Collision manager integrated into FABRIK backward iteration")
+        print("✓ Collision detection system integrated")
+        print("✓ Mesh collision support enabled")
         return True
     except Exception as e:
         print(f"✗ Module test failed: {e}")
@@ -93,10 +144,52 @@ def create_vector3(x=0, y=0, z=0):
     """Create Vector3 (numpy array) from coordinates."""
     return np.array([x, y, z])
 
+def create_sphere_mesh(center, radius, resolution=20):
+    """
+    Create a sphere mesh for collision testing.
+    
+    Args:
+        center (tuple): (x, y, z) center position
+        radius (float): Sphere radius
+        resolution (int): Number of subdivisions
+    
+    Returns:
+        tuple: (vertices, faces) numpy arrays
+    """
+    phi = np.linspace(0, np.pi, resolution)
+    theta = np.linspace(0, 2*np.pi, resolution)
+    
+    vertices = []
+    for p in phi:
+        for t in theta:
+            x = center[0] + radius * np.sin(p) * np.cos(t)
+            y = center[1] + radius * np.sin(p) * np.sin(t)
+            z = center[2] + radius * np.cos(p)
+            vertices.append([x, y, z])
+    
+    vertices = np.array(vertices, dtype=np.float32)
+    
+    # Generate faces (simplified - this creates a basic triangulation)
+    faces = []
+    for i in range(resolution - 1):
+        for j in range(resolution - 1):
+            v1 = i * resolution + j
+            v2 = i * resolution + (j + 1)
+            v3 = (i + 1) * resolution + j
+            v4 = (i + 1) * resolution + (j + 1)
+            
+            faces.append([v1, v2, v3])
+            faces.append([v2, v4, v3])
+    
+    faces = np.array(faces, dtype=np.int32)
+    return vertices, faces
+
 # Export main interfaces
 __all__ = [
-    'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'motor',
+    'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'motor', 'collision',
     'calculate_complete_pipeline', 'solve_fabrik_ik', 'calculate_motors',
-    'verify_installation', 'create_vector3',
-    'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS'
+    'update_collision_mesh', 'remove_collision_mesh', 'clear_all_collision_meshes',
+    'get_collision_pills', 'get_collision_meshes',
+    'verify_installation', 'create_vector3', 'create_sphere_mesh',
+    'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS', 'COLLISION_PILL_RADIUS', 'MAX_COLLISION_RESOLVE_ATTEMPTS'
 ]

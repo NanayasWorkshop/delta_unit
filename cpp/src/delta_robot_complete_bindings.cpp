@@ -1,7 +1,8 @@
-// consolidated_bindings.cpp - ALL modules in one file with collision manager
+// consolidated_bindings.cpp - ALL modules in one file with mesh collision support
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
 
 // Include all headers
 #include "fabrik_initialization.hpp"
@@ -14,11 +15,12 @@
 #include "orientation_module.hpp"
 #include "motor_module.hpp"
 #include "collision_manager.hpp"
+#include "mesh_collision.hpp"
 
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_robot_complete, m) {
-    m.doc() = "Complete Delta Robot Module - All functionality in one place";
+    m.doc() = "Complete Delta Robot Module - All functionality with mesh collision detection";
     
     // =============================================================================
     // TYPES & ENUMS
@@ -45,11 +47,58 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def("get_center", &delta::CollisionPill::get_center)
         .def("get_length", &delta::CollisionPill::get_length);
     
-    // CollisionManager - Only expose functionality, not the class itself
+    pybind11::class_<delta::Triangle>(m, "Triangle")
+        .def_readonly("v0", &delta::Triangle::v0)
+        .def_readonly("v1", &delta::Triangle::v1)
+        .def_readonly("v2", &delta::Triangle::v2)
+        .def_readonly("normal", &delta::Triangle::normal)
+        .def_readonly("area", &delta::Triangle::area);
+    
+    pybind11::class_<delta::CollisionMesh>(m, "CollisionMesh")
+        .def_readonly("mesh_id", &delta::CollisionMesh::mesh_id)
+        .def_readonly("triangles", &delta::CollisionMesh::triangles)
+        .def("is_empty", &delta::CollisionMesh::is_empty);
+    
+    // Mesh collision functions - direct access without exposing CollisionManager class
+    m.def("update_collision_mesh", [](int mesh_id, 
+                                     pybind11::array_t<float> vertices,
+                                     pybind11::array_t<int> faces) {
+        auto v_buf = vertices.request();
+        auto f_buf = faces.request();
+        
+        if (v_buf.ndim != 2 || v_buf.shape[1] != 3) {
+            throw std::runtime_error("Vertices must be Nx3 array");
+        }
+        if (f_buf.ndim != 2 || f_buf.shape[1] != 3) {
+            throw std::runtime_error("Faces must be Mx3 array");
+        }
+        
+        delta::CollisionManager::getInstance().update_mesh(
+            mesh_id,
+            static_cast<float*>(v_buf.ptr), 
+            static_cast<int*>(f_buf.ptr),
+            v_buf.shape[0], f_buf.shape[0]
+        );
+    }, "Update collision mesh with vertices and faces",
+       "mesh_id"_a, "vertices"_a, "faces"_a);
+    
+    m.def("remove_collision_mesh", [](int mesh_id) {
+        delta::CollisionManager::getInstance().remove_mesh(mesh_id);
+    }, "Remove collision mesh by ID", "mesh_id"_a);
+    
+    m.def("clear_all_collision_meshes", []() {
+        delta::CollisionManager::getInstance().clear_all_meshes();
+    }, "Clear all collision meshes");
+    
     m.def("get_collision_pills", []() {
         return delta::CollisionManager::getInstance().get_active_pills();
     }, pybind11::return_value_policy::reference_internal,
        "Get the current active collision pills");
+    
+    m.def("get_collision_meshes", []() {
+        return delta::CollisionManager::getInstance().get_active_meshes();
+    }, pybind11::return_value_policy::reference_internal,
+       "Get the current active collision meshes");
     
     // =============================================================================
     // CORE STRUCTURES
@@ -170,4 +219,5 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
     m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
     m.attr("COLLISION_PILL_RADIUS") = delta::COLLISION_PILL_RADIUS;
+    m.attr("MAX_COLLISION_RESOLVE_ATTEMPTS") = delta::MAX_COLLISION_RESOLVE_ATTEMPTS;
 }
