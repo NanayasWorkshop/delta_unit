@@ -30,6 +30,7 @@ try:
         FabrikChain = delta_complete.FabrikChain
         FabrikJoint = delta_complete.FabrikJoint
         solve_delta_robot = delta_complete.solve_delta_robot
+        solve_with_spline = delta_complete.solve_with_spline  # NEW!
         
     class motor:
         MotorModule = delta_complete.MotorModule
@@ -70,6 +71,16 @@ def solve_fabrik_ik(target_x, target_y, target_z, num_segments=None, tolerance=N
     target = np.array([target_x, target_y, target_z])
     return fabrik.solve_delta_robot(num_segments, target, tolerance)
 
+def solve_fabrik_with_spline(target_x, target_y, target_z, num_segments=None, tolerance=None):
+    """FABRIK inverse kinematics solution with spline visualization points."""
+    if num_segments is None:
+        num_segments = DEFAULT_ROBOT_SEGMENTS
+    if tolerance is None:
+        tolerance = FABRIK_TOLERANCE
+    
+    target = np.array([target_x, target_y, target_z])
+    return fabrik.solve_with_spline(num_segments, target, tolerance)
+
 def calculate_motors(target_x, target_y, target_z):
     """Calculate motor positions using the Motor module."""
     return motor.MotorModule.calculate_motors(target_x, target_y, target_z)
@@ -82,6 +93,12 @@ def verify_installation():
         print("✓ Consolidated delta robot module imported successfully!")
         print("✓ All functionality available through single module")
         print("✓ 70% reduction in binding code achieved")
+        
+        # Test spline functionality
+        spline_result = solve_fabrik_with_spline(100, 50, 300)
+        if hasattr(spline_result, 'spline_points') and hasattr(spline_result, 'segment_midpoints'):
+            print("✓ Spline visualization support available!")
+        
         return True
     except Exception as e:
         print(f"✗ Module test failed: {e}")
@@ -95,7 +112,7 @@ def create_vector3(x=0, y=0, z=0):
 # Export main interfaces
 __all__ = [
     'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'motor',
-    'calculate_complete_pipeline', 'solve_fabrik_ik', 'calculate_motors',
+    'calculate_complete_pipeline', 'solve_fabrik_ik', 'solve_fabrik_with_spline', 'calculate_motors',
     'verify_installation', 'create_vector3',
     'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS'
 ]

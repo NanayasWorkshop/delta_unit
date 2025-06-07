@@ -36,7 +36,9 @@ struct FabrikSolutionResult {
     int forward_iterations;                     // Number of forward iterations
     std::vector<Vector3> convergence_history;   // End-effector position each iteration
     double solve_time_ms;                       // Time taken to solve
-    std::vector<SegmentEndEffectorData> segment_end_effectors;  // NEW! Physical segment end-effectors
+    std::vector<SegmentEndEffectorData> segment_end_effectors;  // Physical segment end-effectors
+    std::vector<Vector3> spline_points;         // NEW! Points for spline visualization
+    std::vector<Vector3> segment_midpoints;     // NEW! 50% points of each segment
     
     FabrikSolutionResult(const FabrikChain& chain, const Vector3& target, const Vector3& achieved,
                         bool conv, double error, int total_iter)
@@ -87,6 +89,10 @@ public:
     static double calculate_chain_error(const FabrikChain& chain);
     static Vector3 get_end_effector_position(const FabrikChain& chain);
     
+    // NEW! Spline visualization methods
+    static std::vector<Vector3> extract_spline_points(const FabrikChain& solved_chain);
+    static std::vector<Vector3> calculate_segment_midpoints(const FabrikChain& solved_chain);
+    
     // Utility methods
     static FabrikSolverConfig create_fast_config();     // Fast solving (loose tolerance)
     static FabrikSolverConfig create_precise_config();  // Precise solving (tight tolerance)
@@ -101,7 +107,7 @@ private:
     // Segment length management - CRITICAL for preventing oscillation
     static void update_segment_lengths(FabrikChain& chain, const std::vector<double>& new_lengths);
     
-    // NEW! Extract segment end-effector positions from solved chain
+    // Extract segment end-effector positions from solved chain
     static std::vector<SegmentEndEffectorData> extract_segment_end_effectors(const FabrikChain& solved_chain);
     
     // Convergence checking

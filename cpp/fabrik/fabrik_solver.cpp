@@ -102,6 +102,55 @@ Vector3 FabrikSolver::get_end_effector_position(const FabrikChain& chain) {
     return chain.joints.back().position;
 }
 
+// NEW! Extract spline points from solved chain
+std::vector<Vector3> FabrikSolver::extract_spline_points(const FabrikChain& solved_chain) {
+    std::vector<Vector3> spline_points;
+    
+    if (solved_chain.joints.size() < 3) {
+        return spline_points; // Need at least 3 joints for this logic
+    }
+    
+    // First point: J0 (base) directly - no midpoint for first segment
+    spline_points.push_back(solved_chain.joints[0].position);
+    
+    // Middle points: 50% along each segment from J1-J2 to J(n-2)-J(n-1)
+    // Skip first segment (J0-J1) and last segment (J(n-1)-Jn)
+    for (size_t i = 1; i < solved_chain.joints.size() - 2; i++) {
+        Vector3 start_joint = solved_chain.joints[i].position;      // J(i)
+        Vector3 end_joint = solved_chain.joints[i + 1].position;    // J(i+1)
+        
+        // 50% midpoint between J(i) and J(i+1)
+        Vector3 midpoint = start_joint + 0.5 * (end_joint - start_joint);
+        spline_points.push_back(midpoint);
+    }
+    
+    // Last point: J_final (end-effector) directly - no midpoint for last segment
+    spline_points.push_back(solved_chain.joints.back().position);
+    
+    return spline_points;
+}
+
+// NEW! Calculate segment midpoints from solved chain
+std::vector<Vector3> FabrikSolver::calculate_segment_midpoints(const FabrikChain& solved_chain) {
+    std::vector<Vector3> midpoints;
+    
+    if (solved_chain.joints.size() < 2) {
+        return midpoints; // Need at least 2 joints
+    }
+    
+    // Calculate 50% midpoints for each consecutive joint pair
+    for (size_t i = 0; i < solved_chain.joints.size() - 1; i++) {
+        Vector3 start_joint = solved_chain.joints[i].position;
+        Vector3 end_joint = solved_chain.joints[i + 1].position;
+        
+        // 50% midpoint
+        Vector3 midpoint = start_joint + 0.5 * (end_joint - start_joint);
+        midpoints.push_back(midpoint);
+    }
+    
+    return midpoints;
+}
+
 FabrikSolverConfig FabrikSolver::create_fast_config() {
     FabrikSolverConfig config;
     config.tolerance = FABRIK_TOLERANCE * 10;  // Loose tolerance (10x default)
@@ -217,8 +266,12 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
             result.forward_iterations = total_forward_iterations;
             result.convergence_history = convergence_history;
             
-            // NEW! Extract segment end-effector positions
+            // Extract segment end-effector positions
             result.segment_end_effectors = extract_segment_end_effectors(current_chain);
+            
+            // NEW! Extract spline visualization points
+            result.spline_points = extract_spline_points(current_chain);
+            result.segment_midpoints = calculate_segment_midpoints(current_chain);
             
             return result;
         }
@@ -261,8 +314,12 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
     result.forward_iterations = total_forward_iterations;
     result.convergence_history = convergence_history;
     
-    // NEW! Extract segment end-effector positions even if not converged
+    // Extract segment end-effector positions even if not converged
     result.segment_end_effectors = extract_segment_end_effectors(current_chain);
+    
+    // NEW! Extract spline visualization points even if not converged
+    result.spline_points = extract_spline_points(current_chain);
+    result.segment_midpoints = calculate_segment_midpoints(current_chain);
     
     return result;
 }
@@ -293,7 +350,7 @@ void FabrikSolver::update_segment_lengths(FabrikChain& chain, const std::vector<
     }
 }
 
-// NEW! Extract segment end-effector positions from solved chain
+// Extract segment end-effector positions from solved chain
 std::vector<SegmentEndEffectorData> FabrikSolver::extract_segment_end_effectors(const FabrikChain& solved_chain) {
     std::vector<SegmentEndEffectorData> segment_data;
     

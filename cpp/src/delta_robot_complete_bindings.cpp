@@ -63,7 +63,9 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     pybind11::class_<delta::FabrikSolutionResult>(m, "FabrikSolutionResult")
         .def_readonly("final_chain", &delta::FabrikSolutionResult::final_chain)
         .def_readonly("converged", &delta::FabrikSolutionResult::converged)
-        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error);
+        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error)
+        .def_readonly("spline_points", &delta::FabrikSolutionResult::spline_points)           // NEW!
+        .def_readonly("segment_midpoints", &delta::FabrikSolutionResult::segment_midpoints); // NEW!
     
     pybind11::class_<delta::MotorResult>(m, "MotorResult")
         .def_readonly("target_position", &delta::MotorResult::target_position)
@@ -119,7 +121,9 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("initialize_straight_up", &delta::FabrikInitialization::initialize_straight_up);
     
     pybind11::class_<delta::FabrikSolver>(m, "FabrikSolver")
-        .def_static("solve", &delta::FabrikSolver::solve);
+        .def_static("solve", &delta::FabrikSolver::solve)
+        .def_static("extract_spline_points", &delta::FabrikSolver::extract_spline_points)           // NEW!
+        .def_static("calculate_segment_midpoints", &delta::FabrikSolver::calculate_segment_midpoints); // NEW!
     
     // =============================================================================
     // MOTOR MODULE
@@ -139,6 +143,11 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     m.def("calculate_motors", [](double x, double y, double z) {
         return delta::MotorModule::calculate_motors(x, y, z);
     });
+    
+    // NEW! Convenience function for spline visualization
+    m.def("solve_with_spline", [](int num_segments, const delta::Vector3& target, double tolerance) {
+        return delta::fabrik_utils::solve_delta_robot(num_segments, target, tolerance);
+    }, "Solve FABRIK and return result with spline points");
     
     // =============================================================================
     // CONSTANTS
