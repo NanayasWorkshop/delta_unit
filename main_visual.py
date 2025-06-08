@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
 Visual Collision-Aware Delta Robot Motor Module Test
-Same functionality as main.py but with detailed 3D visualization using Plotly
+Based on the clean visualization approach from test_collision_aware_solver.py
 """
 import sys
 import os
 import numpy as np
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import time
 
 # Add project root to path
@@ -53,121 +52,81 @@ def parse_current_positions(current_str, expected_segments=8):
         print("Using straight-up fallback.")
         return None
 
-def create_test_scenario_obstacles():
-    """Create some test obstacles in the workspace"""
-    try:
-        import delta_robot
+def create_spline_from_u_points(u_points, num_samples=100):
+    """
+    Create the same spline that collision detection uses (Catmull-Rom spline)
+    This replicates the logic from ConicalSwarmSplineAvoider::createSpline
+    """
+    if len(u_points) < 2:
+        return np.array([])
+    
+    # Convert u_points to numpy array for easier manipulation
+    points = np.array([[pt[0], pt[1], pt[2]] if hasattr(pt, '__getitem__') 
+                      else [pt.x(), pt.y(), pt.z()] for pt in u_points])
+    
+    spline_points = []
+    
+    for i in range(num_samples):
+        t = i / (num_samples - 1)
+        scaled_t = t * (len(points) - 1)
+        segment = int(scaled_t)
+        local_t = scaled_t - segment
         
-        obstacles = []
+        if segment >= len(points) - 1:
+            spline_points.append(points[-1])
+            continue
         
-        # Obstacle 1: In middle-left of workspace
-        obstacles.append(delta_robot.create_obstacle(80, 80, 250, 30))
+        # Get control points for Catmull-Rom spline
+        p0 = points[segment - 1] if segment > 0 else points[segment]
+        p1 = points[segment]
+        p2 = points[segment + 1]
+        p3 = points[segment + 2] if segment < len(points) - 2 else points[segment + 1]
         
-        # Obstacle 2: On the right side
-        obstacles.append(delta_robot.create_obstacle(120, -60, 280, 25))
+        # Catmull-Rom interpolation
+        interpolated = 0.5 * (
+            2.0 * p1 +
+            (-p0 + p2) * local_t +
+            (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * local_t * local_t +
+            (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * local_t * local_t * local_t
+        )
         
-        print(f"Created {len(obstacles)} test obstacles:")
-        for i, obs in enumerate(obstacles):
-            center = obs.center
-            print(f"  Obstacle {i+1}: center=({center[0]:.1f}, {center[1]:.1f}, {center[2]:.1f}), radius={obs.radius}")
-        
-        return obstacles
-        
-    except Exception as e:
-        print(f"Warning: Could not create test obstacles: {e}")
-        return []
+        spline_points.append(interpolated)
+    
+    return np.array(spline_points)
 
-def add_obstacle_to_plot(fig, obstacle, index):
-    """Add obstacle sphere to the plot"""
-    center = obstacle.center
-    radius = obstacle.radius
-    
-    # Create sphere
-    u = np.linspace(0, 2 * np.pi, 20)
-    v = np.linspace(0, np.pi, 20)
-    x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
-    y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
-    z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
-    
-    fig.add_trace(go.Surface(
-        x=x, y=y, z=z, 
-        opacity=0.6, 
-        colorscale='Reds', 
-        showscale=False, 
-        name=f'Obstacle {index+1}'
-    ))
-
-def add_chain_to_plot(fig, chain, name, color, line_style='solid', marker_size=5):
-    """Add a FABRIK chain to the plot"""
-    joints = []
-    for joint in chain.joints:
-        pos = joint.position
-        joints.append([pos[0], pos[1], pos[2]])
-    joints = np.array(joints)
-    
-    line_dict = dict(color=color, width=4)
-    if line_style == 'dash':
-        line_dict['dash'] = 'dash'
-    elif line_style == 'dot':
-        line_dict['dash'] = 'dot'
-    
-    fig.add_trace(go.Scatter3d(
-        x=joints[:, 0], 
-        y=joints[:, 1], 
-        z=joints[:, 2],
-        mode='markers+lines',
-        marker=dict(size=marker_size, color=color),
-        line=line_dict,
-        name=name
-    ))
-
-def add_points_to_plot(fig, points, name, color, marker_symbol='circle', marker_size=6):
-    """Add a list of points to the plot"""
-    if len(points) == 0:
+def add_spline_tube_to_plot(fig, spline_points, diameter, name, color, opacity=0.3):
+    """
+    Add a tube visualization around a SPLINE PATH with given diameter
+    This shows the actual collision envelope that the collision detection uses
+    """
+    if len(spline_points) == 0:
         return
     
-    points_array = []
-    for point in points:
-        points_array.append([point[0], point[1], point[2]])
-    points_array = np.array(points_array)
+    # Ensure spline_points is a numpy array
+    if not isinstance(spline_points, np.ndarray):
+        spline_array = []
+        for point in spline_points:
+            if hasattr(point, '__getitem__'):  # numpy array or list
+                spline_array.append([point[0], point[1], point[2]])
+            else:  # Eigen vector
+                spline_array.append([point.x(), point.y(), point.z()])
+        spline_points = np.array(spline_array)
     
-    fig.add_trace(go.Scatter3d(
-        x=points_array[:, 0], 
-        y=points_array[:, 1], 
-        z=points_array[:, 2],
-        mode='markers+lines',
-        marker=dict(size=marker_size, color=color, symbol=marker_symbol),
-        line=dict(color=color, width=3),
-        name=name
-    ))
-
-def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
-    """Add a tube visualization around a path with given diameter"""
-    if len(points) == 0:
-        return
-    
-    # Convert points to numpy array
-    points_array = []
-    for point in points:
-        points_array.append([point[0], point[1], point[2]])
-    points_array = np.array(points_array)
-    
-    if len(points_array) < 2:
+    if len(spline_points) < 2:
         return
     
     radius = diameter / 2.0
     
-    # Create tube mesh along the path
+    # Create tube mesh along the spline path
     tube_x = []
     tube_y = []
     tube_z = []
     
     # Number of segments around the tube circumference
-    n_circumference = 16
+    n_circumference = 12  # Reduced for performance
     
     # Create a consistent reference frame to prevent twisting
-    # Use the first direction as reference
-    first_direction = points_array[1] - points_array[0] if len(points_array) > 1 else np.array([0, 0, 1])
+    first_direction = spline_points[1] - spline_points[0] if len(spline_points) > 1 else np.array([0, 0, 1])
     first_direction = first_direction / np.linalg.norm(first_direction)
     
     # Create initial perpendicular vectors
@@ -179,28 +138,23 @@ def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
     ref_v2 = np.cross(first_direction, ref_v1)
     ref_v2 = ref_v2 / np.linalg.norm(ref_v2)
     
-    for i in range(len(points_array)):
+    for i in range(len(spline_points)):
         if i == 0:
-            # First point - use first direction
             direction = first_direction
             v1, v2 = ref_v1, ref_v2
-        elif i == len(points_array) - 1:
-            # Last point - use direction from previous to current
-            direction = points_array[i] - points_array[i-1]
+        elif i == len(spline_points) - 1:
+            direction = spline_points[i] - spline_points[i-1]
             direction = direction / np.linalg.norm(direction)
         else:
-            # Middle points - use direction from current to next point
-            direction = points_array[i+1] - points_array[i]
+            direction = spline_points[i+1] - spline_points[i]
             direction = direction / np.linalg.norm(direction)
         
         # For points after the first, calculate perpendicular vectors that minimize twisting
         if i > 0:
-            # Project previous v1 onto plane perpendicular to current direction
             v1_projected = ref_v1 - np.dot(ref_v1, direction) * direction
             if np.linalg.norm(v1_projected) > 1e-6:
                 v1 = v1_projected / np.linalg.norm(v1_projected)
             else:
-                # Fallback if projection fails
                 if abs(direction[2]) < 0.9:
                     v1 = np.cross(direction, [0, 0, 1])
                 else:
@@ -208,8 +162,6 @@ def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
                 v1 = v1 / np.linalg.norm(v1)
             v2 = np.cross(direction, v1)
             v2 = v2 / np.linalg.norm(v2)
-            
-            # Update reference for next iteration
             ref_v1, ref_v2 = v1, v2
         
         # Create circle around this point
@@ -220,7 +172,7 @@ def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
         for j in range(n_circumference + 1):  # +1 to close the circle
             angle = 2 * np.pi * j / n_circumference
             offset = radius * (np.cos(angle) * v1 + np.sin(angle) * v2)
-            point = points_array[i] + offset
+            point = spline_points[i] + offset
             circle_x.append(point[0])
             circle_y.append(point[1])
             circle_z.append(point[2])
@@ -234,7 +186,7 @@ def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
     tube_y = np.array(tube_y)
     tube_z = np.array(tube_z)
     
-    # Add surface with higher opacity and better visual properties
+    # Add surface
     fig.add_trace(go.Surface(
         x=tube_x, y=tube_y, z=tube_z,
         opacity=opacity,
@@ -245,197 +197,370 @@ def add_tube_to_plot(fig, points, diameter, name, color, opacity=0.7):
         hovertemplate=f'{name}<br>Diameter: {diameter}mm<extra></extra>'
     ))
 
-def solve_and_visualize_collision_aware(target_x, target_y, target_z, current_positions=None, enable_obstacles=True):
-    """Solve using collision-aware approach with detailed visualization"""
-    import delta_robot
-    
-    target = np.array([target_x, target_y, target_z])
-    
-    # Create test obstacles if enabled
-    obstacles = create_test_scenario_obstacles() if enable_obstacles else []
-    
-    print(f"\n=== COLLISION-AWARE SOLVING WITH VISUALIZATION ===")
-    print(f"Target: ({target_x}, {target_y}, {target_z})")
-    print(f"Obstacles: {len(obstacles)} in workspace")
-    print(f"Using {'provided' if current_positions else 'straight-up'} initialization")
-    
-    # Configure collision-aware solving
-    config = delta_robot.collision.CollisionAwareConfig()
-    config.max_collision_iterations = 3
-    config.spline_diameter = delta_robot.DEFAULT_SPLINE_DIAMETER
-    config.enable_collision_detection = len(obstacles) > 0
-    config.verbose_logging = True
-    
-    # Create figure for visualization
-    fig = go.Figure()
-    
-    # Add obstacles to plot first
-    for i, obs in enumerate(obstacles):
-        add_obstacle_to_plot(fig, obs, i)
-    
-    # Add target point
-    fig.add_trace(go.Scatter3d(
-        x=[target[0]], y=[target[1]], z=[target[2]],
-        mode='markers',
-        marker=dict(size=15, color='gold', symbol='diamond'),
-        name='Target'
-    ))
-    
+def create_detailed_pipeline_visualization(target_x, target_y, target_z, current_positions=None, enable_obstacles=True):
+    """Create detailed visualization of the complete collision-aware pipeline - based on test file approach"""
     try:
+        import delta_robot
+        import time
+        
+        print("\n=== CREATING DETAILED PIPELINE VISUALIZATION ===")
+        
+        # Start total timing
+        total_start_time = time.time()
+        
+        # Setup test scenario
+        target = np.array([target_x, target_y, target_z])
+        obstacles = delta_robot.collision.CollisionDetector.create_test_obstacles() if enable_obstacles else []
+        
+        print(f"Target: ({target_x}, {target_y}, {target_z})")
+        print(f"Obstacles: {len(obstacles)} in workspace")
+        print("Running complete collision-aware pipeline...")
+        
         # Step 1: Initial FABRIK solution
-        print("\nStep 1: Initial FABRIK solution...")
+        step1_start = time.time()
+        print("Step 1: Initial FABRIK solution")
         if current_positions is not None:
-            # Use motor module which handles initialization internally
+            # Use motor module for initialization
             motor_result_initial = delta_robot.motor.MotorModule.calculate_motors(target, current_positions)
-            # Extract the FABRIK result from motor result
-            initial_fabrik = type('FabrikResult', (), {
-                'final_chain': type('Chain', (), {'joints': [type('Joint', (), {'position': pos})() for pos in motor_result_initial.fabrik_joint_positions]})(),
-                'converged': motor_result_initial.fabrik_converged,
-                'final_error': motor_result_initial.fabrik_error
-            })()
+            # Create FABRIK-like structure from motor result
+            initial_joints = []
+            for joint_pos in motor_result_initial.fabrik_joint_positions:
+                if hasattr(joint_pos, 'shape'):
+                    initial_joints.append(joint_pos)
+                else:
+                    initial_joints.append(np.array([joint_pos.x(), joint_pos.y(), joint_pos.z()]))
+            initial_fabrik_error = motor_result_initial.fabrik_error
+            initial_solve_time = motor_result_initial.solve_time_ms
         else:
-            # Use simple FABRIK solver
-            initial_fabrik = delta_robot.fabrik.solve_delta_robot(delta_robot.DEFAULT_ROBOT_SEGMENTS, target, delta_robot.FABRIK_TOLERANCE)
+            initial_fabrik = delta_robot.fabrik.solve_delta_robot(7, target, delta_robot.FABRIK_TOLERANCE)
+            initial_joints = []
+            for joint in initial_fabrik.final_chain.joints:
+                pos = joint.position
+                initial_joints.append([pos[0], pos[1], pos[2]])
+            initial_fabrik_error = initial_fabrik.final_error
+            initial_solve_time = initial_fabrik.solve_time_ms
+        step1_time = (time.time() - step1_start) * 1000
         
-        print(f"   Initial FABRIK converged: {initial_fabrik.converged}")
-        print(f"   Initial error: {initial_fabrik.final_error:.3f}mm")
+        # Step 2: Extract U points from initial FABRIK
+        step2_start = time.time()
+        print("Step 2: Extracting U points")
+        if current_positions is not None:
+            u_points = delta_robot.collision.UPointsExtractor.extract_u_points_from_positions(initial_joints)
+        else:
+            u_points = delta_robot.collision.UPointsExtractor.extract_u_points(initial_fabrik.final_chain)
+        step2_time = (time.time() - step2_start) * 1000
         
-        # Add initial solution to plot
-        add_chain_to_plot(fig, initial_fabrik.final_chain, '1. Initial FABRIK', 'blue', 'dash')
+        # Step 3: Run collision detection and get swarm-optimized waypoints
+        step3_start = time.time()
+        print("Step 3: Collision detection and swarm optimization")
+        collision_result = delta_robot.collision.CollisionDetector.check_and_avoid(
+            u_points, obstacles, delta_robot.DEFAULT_SPLINE_DIAMETER
+        )
+        step3_time = collision_result.computation_time
         
-        if len(obstacles) == 0:
-            print("No obstacles - showing initial FABRIK solution only")
-            
-            # Calculate segments for motor results
-            segment_result = delta_robot.motor.SegmentCalculator.calculate_segment_end_effectors(
-                initial_fabrik.final_chain)
-            
-            # Update layout and show
-            fig.update_layout(
-                title=f'No Collision Detection - Initial FABRIK Solution<br>Target: ({target_x}, {target_y}, {target_z})<br>Error: {initial_fabrik.final_error:.3f}mm',
-                scene=dict(
-                    xaxis_title='X (mm)',
-                    yaxis_title='Y (mm)', 
-                    zaxis_title='Z (mm)',
-                    aspectmode='data'
-                ),
-                height=800
+        # Step 4: Convert waypoints back to joint positions
+        step4_start = time.time()
+        print("Step 4: Converting waypoints to joint positions")
+        conversion_result = delta_robot.collision.WaypointConverter.convert_waypoints_to_joints(
+            collision_result.waypoints
+        )
+        step4_time = (time.time() - step4_start) * 1000
+        
+        # Step 5: Final FABRIK solution with collision-free initial positions
+        step5_start = time.time()
+        print("Step 5: Final FABRIK solution")
+        if conversion_result.conversion_successful and len(collision_result.waypoints) > 0:
+            final_fabrik_chain = delta_robot.collision.WaypointConverter.create_fabrik_chain_from_waypoints(
+                collision_result.waypoints, 7
             )
-            fig.show()
+            final_fabrik = delta_robot.fabrik.FabrikSolver.solve(final_fabrik_chain, target)
+            final_joints = []
+            for joint in final_fabrik.final_chain.joints:
+                pos = joint.position
+                final_joints.append([pos[0], pos[1], pos[2]])
+            final_fabrik_solve_time = final_fabrik.solve_time_ms
+        else:
+            final_joints = initial_joints
+            final_fabrik = type('FabrikResult', (), {'final_error': initial_fabrik_error, 'solve_time_ms': 0})()
+            final_fabrik_solve_time = 0
+        step5_time = (time.time() - step5_start) * 1000
+        
+        # Step 6: Final motor calculation (like test file approach)
+        step6_start = time.time()
+        print("Step 6: Final motor calculation with collision-free solution")
+        
+        # Convert final joints to proper format for motor module
+        final_joint_positions = []
+        for joint_pos in final_joints:
+            if hasattr(joint_pos, '__len__') and len(joint_pos) == 3:
+                final_joint_positions.append(np.array(joint_pos))
+            else:
+                final_joint_positions.append(joint_pos)
+        
+        # Calculate final motor result
+        final_motor_result = delta_robot.motor.MotorModule.calculate_motors(
+            target_x, target_y, target_z, final_joint_positions)
+        step6_time = final_motor_result.solve_time_ms
+        
+        # Step 7: Verify final solution is collision-free
+        step7_start = time.time()
+        print("Step 7: Verifying final motor solution")
+        final_motor_joints = []
+        for joint_pos in final_motor_result.fabrik_joint_positions:
+            if hasattr(joint_pos, 'shape'):
+                final_motor_joints.append(joint_pos)
+            else:
+                final_motor_joints.append(np.array([joint_pos.x(), joint_pos.y(), joint_pos.z()]))
+        
+        final_u_points = delta_robot.collision.UPointsExtractor.extract_u_points_from_positions(final_motor_joints)
+        final_collision_check = delta_robot.collision.CollisionDetector.check_and_avoid(
+            final_u_points, obstacles, delta_robot.DEFAULT_SPLINE_DIAMETER)
+        step7_time = final_collision_check.computation_time
+        
+        print(f"   Final solution collision-free: {not final_collision_check.has_collision}")
+        print(f"   Final min distance: {final_collision_check.min_distance:.2f}mm")
+        
+        # CRITICAL FIX: If Step 7 found collision, we need to use the corrected waypoints!
+        if final_collision_check.has_collision and len(final_collision_check.waypoints) > 0:
+            print("   Step 7 detected collision - using corrected waypoints for visualization")
             
-            return initial_fabrik, None, segment_result
-        
-        # Step 2: Extract U points from initial solution
-        print("Step 2: Extracting U points...")
-        u_points = delta_robot.collision.UPointsExtractor.extract_u_points(initial_fabrik.final_chain)
-        print(f"   Extracted {len(u_points)} U points")
-        
-        # Add U points to plot
-        add_points_to_plot(fig, u_points, '2. U Points (Collision Detection)', 'red', 'circle', 7)
-        
-        # Add tube visualization around U points path to show collision envelope
-        print("   Adding collision tube visualization...")
-        add_tube_to_plot(fig, u_points, config.spline_diameter, 
-                        f'2b. Collision Tube (Ø{config.spline_diameter}mm)', 'red', opacity=0.5)
-        
-        # Step 3: Run collision-aware solving with iteration tracking
-        print("Step 3: Running collision-aware solving...")
-        
-        collision_result = delta_robot.collision.CollisionAwareSolver.solve_with_collision_avoidance(
-            target, obstacles, config)
-        
-        print(f"\n=== COLLISION SOLVING RESULTS ===")
-        print(f"✓ Collision-free solution: {collision_result.collision_free}")
-        print(f"✓ FABRIK converged: {collision_result.fabrik_result.converged}")
-        print(f"✓ Final error: {collision_result.fabrik_result.final_error:.4f}")
-        print(f"✓ Collision iterations: {collision_result.collision_iterations}")
-        print(f"✓ Total collision time: {collision_result.total_collision_time_ms:.2f}ms")
-        
-        # Step 4: Show collision detection history
-        print("Step 4: Visualizing collision detection iterations...")
-        
-        # Re-run collision detection to get waypoints for visualization
-        collision_check = delta_robot.collision.CollisionDetector.check_and_avoid(
-            u_points, obstacles, config.spline_diameter)
-        
-        if len(collision_check.waypoints) > 0:
-            add_points_to_plot(fig, collision_check.waypoints, 
-                             f'3. Swarm Waypoints (min_dist: {collision_check.min_distance:.1f}mm)', 
-                             'orange', 'circle', 8)
+            # Convert the corrected waypoints to joint positions
+            step7_conversion = delta_robot.collision.WaypointConverter.convert_waypoints_to_joints(
+                final_collision_check.waypoints)
             
-            # Add tube around swarm waypoints to show optimized collision envelope
-            add_tube_to_plot(fig, collision_check.waypoints, config.spline_diameter,
-                           f'3b. Optimized Tube (Ø{config.spline_diameter}mm)', 'orange', opacity=0.4)
+            if step7_conversion.conversion_successful:
+                # Use the collision-corrected joint positions for visualization
+                final_motor_joints = []
+                for joint_pos in step7_conversion.joint_positions:
+                    if hasattr(joint_pos, '__len__'):
+                        final_motor_joints.append(np.array(joint_pos))
+                    else:
+                        final_motor_joints.append(joint_pos)
+                
+                # Recalculate U points from corrected positions
+                final_u_points = delta_robot.collision.UPointsExtractor.extract_u_points_from_positions(final_motor_joints)
+                
+                print(f"   Using collision-corrected solution for visualization")
+        
+        # Calculate total time
+        total_time = (time.time() - total_start_time) * 1000
+        
+        # Create visualization (exactly like test file)
+        print("Creating visualization...")
+        fig = go.Figure()
+        
+        # Add obstacles
+        for i, obs in enumerate(obstacles):
+            center = obs.center
+            radius = obs.radius
             
-            # Convert waypoints to joints for visualization
-            conversion_result = delta_robot.collision.WaypointConverter.convert_waypoints_to_joints(
-                collision_check.waypoints)
+            # Create sphere
+            u = np.linspace(0, 2 * np.pi, 15)
+            v = np.linspace(0, np.pi, 15)
+            x = radius * np.outer(np.cos(u), np.sin(v)) + center[0]
+            y = radius * np.outer(np.sin(u), np.sin(v)) + center[1]
+            z = radius * np.outer(np.ones(np.size(u)), np.cos(v)) + center[2]
             
-            if conversion_result.conversion_successful:
-                add_points_to_plot(fig, conversion_result.joint_positions, 
-                                 '4. Converted Joint Positions', 'purple', 'square', 6)
+            fig.add_trace(go.Surface(
+                x=x, y=y, z=z, 
+                opacity=0.5, 
+                colorscale='Reds', 
+                showscale=False, 
+                name=f'Obstacle {i+1}'
+            ))
         
-        # Step 5: Add final solution
-        print("Step 5: Adding final collision-aware solution...")
+        # Step 1: Initial FABRIK solution (blue dashed)
+        initial_joints_array = np.array(initial_joints)
+        fig.add_trace(go.Scatter3d(
+            x=initial_joints_array[:, 0], 
+            y=initial_joints_array[:, 1], 
+            z=initial_joints_array[:, 2],
+            mode='markers+lines',
+            marker=dict(size=5, color='blue'),
+            line=dict(color='blue', width=3, dash='dash'),
+            name='1. Initial FABRIK'
+        ))
         
-        # Add final solution
-        add_chain_to_plot(fig, collision_result.fabrik_result.final_chain, 
-                         '5. Final Collision-Aware Solution', 'green', 'solid', 7)
+        # Step 2: U points (red)
+        u_points_array = []
+        for u_point in u_points:
+            if hasattr(u_point, '__len__'):
+                u_points_array.append([u_point[0], u_point[1], u_point[2]])
+            else:
+                u_points_array.append([u_point.x(), u_point.y(), u_point.z()])
+        u_points_array = np.array(u_points_array)
         
-        # Add tube around final solution to show final collision envelope
-        final_u_points = delta_robot.collision.UPointsExtractor.extract_u_points(collision_result.fabrik_result.final_chain)
-        add_tube_to_plot(fig, final_u_points, config.spline_diameter,
-                       f'5b. Final Solution Tube (Ø{config.spline_diameter}mm)', 'green', opacity=0.3)
+        fig.add_trace(go.Scatter3d(
+            x=u_points_array[:, 0], 
+            y=u_points_array[:, 1], 
+            z=u_points_array[:, 2],
+            mode='markers+lines',
+            marker=dict(size=7, color='red'),
+            line=dict(color='red', width=4),
+            name='2. U Points'
+        ))
         
-        # Step 6: Calculate segment end-effectors
-        print("Step 6: Calculating segment end-effectors...")
-        segment_result = delta_robot.motor.SegmentCalculator.calculate_segment_end_effectors(
-            collision_result.fabrik_result.final_chain)
-        print(f"   Calculated {len(segment_result.segment_end_effectors)} segments in {segment_result.calculation_time_ms:.2f}ms")
+        # Step 3: Swarm-optimized waypoints (orange)
+        if len(collision_result.waypoints) > 0:
+            waypoints_array = []
+            for waypoint in collision_result.waypoints:
+                if hasattr(waypoint, '__len__'):
+                    waypoints_array.append([waypoint[0], waypoint[1], waypoint[2]])
+                else:
+                    waypoints_array.append([waypoint.x(), waypoint.y(), waypoint.z()])
+            waypoints_array = np.array(waypoints_array)
+            
+            fig.add_trace(go.Scatter3d(
+                x=waypoints_array[:, 0], 
+                y=waypoints_array[:, 1], 
+                z=waypoints_array[:, 2],
+                mode='markers+lines',
+                marker=dict(size=8, color='orange'),
+                line=dict(color='orange', width=5),
+                name='3. Swarm Waypoints'
+            ))
         
-        # Add segment end-effectors to plot
-        if segment_result.calculation_successful:
-            segment_positions = [seg.end_effector_position for seg in segment_result.segment_end_effectors]
-            add_points_to_plot(fig, segment_positions, '6. Segment End-Effectors', 'cyan', 'diamond', 10)
+        # Step 4: Converted joint positions (purple) 
+        if conversion_result.conversion_successful:
+            converted_joints = []
+            for joint_pos in conversion_result.joint_positions:
+                if hasattr(joint_pos, '__len__'):
+                    converted_joints.append([joint_pos[0], joint_pos[1], joint_pos[2]])
+                else:
+                    converted_joints.append([joint_pos.x(), joint_pos.y(), joint_pos.z()])
+            converted_joints = np.array(converted_joints)
+            
+            fig.add_trace(go.Scatter3d(
+                x=converted_joints[:, 0], 
+                y=converted_joints[:, 1], 
+                z=converted_joints[:, 2],
+                mode='markers+lines',
+                marker=dict(size=6, color='purple'),
+                line=dict(color='purple', width=4, dash='dot'),
+                name='4. Converted Joints'
+            ))
         
-        # Update layout with comprehensive information
-        status = "SUCCESS" if collision_result.collision_free else "PARTIAL"
-        collision_info = f"Min distance: {collision_check.min_distance:.1f}mm (Tube Ø{config.spline_diameter}mm)" if len(obstacles) > 0 else "No obstacles"
+        # Step 5: Final FABRIK solution (green)
+        final_joints_array = np.array(final_joints)
+        fig.add_trace(go.Scatter3d(
+            x=final_joints_array[:, 0], 
+            y=final_joints_array[:, 1], 
+            z=final_joints_array[:, 2],
+            mode='markers+lines',
+            marker=dict(size=7, color='green'),
+            line=dict(color='green', width=6),
+            name='5. Final FABRIK'
+        ))
+        
+        # Step 6: Final MOTOR solution (dark blue - most important)
+        final_motor_joints_array = np.array(final_motor_joints)
+        final_color = 'red' if final_collision_check.has_collision else 'darkblue'
+        final_name = '6. Final MOTOR Solution ❌' if final_collision_check.has_collision else '6. Final MOTOR Solution ✅'
+        
+        fig.add_trace(go.Scatter3d(
+            x=final_motor_joints_array[:, 0], 
+            y=final_motor_joints_array[:, 1], 
+            z=final_motor_joints_array[:, 2],
+            mode='markers+lines',
+            marker=dict(size=8, color=final_color),
+            line=dict(color=final_color, width=7),
+            name=final_name
+        ))
+        
+        # NEW: Add tube visualization around the FINAL MOTOR solution
+        print("   Adding collision tube around final motor solution...")
+        final_motor_spline = create_spline_from_u_points(final_u_points, num_samples=80)
+        
+        if len(final_motor_spline) > 0:
+            # Add the spline path first
+            fig.add_trace(go.Scatter3d(
+                x=final_motor_spline[:, 0], 
+                y=final_motor_spline[:, 1], 
+                z=final_motor_spline[:, 2],
+                mode='lines',
+                line=dict(color=final_color, width=2, dash='dot'),
+                name='6b. Final Motor Spline Path',
+                opacity=0.8
+            ))
+            
+            # Add tube around the final motor solution
+            tube_color = 'red' if final_collision_check.has_collision else 'darkblue'
+            tube_name = f'6c. Final Motor Tube (Ø{delta_robot.DEFAULT_SPLINE_DIAMETER}mm) ❌' if final_collision_check.has_collision else f'6c. Final Motor Tube (Ø{delta_robot.DEFAULT_SPLINE_DIAMETER}mm) ✅'
+            tube_opacity = 0.4 if final_collision_check.has_collision else 0.2
+            
+            add_spline_tube_to_plot(fig, final_motor_spline, delta_robot.DEFAULT_SPLINE_DIAMETER,
+                           tube_name, tube_color, opacity=tube_opacity)
+        
+        # Add target (gold diamond)
+        fig.add_trace(go.Scatter3d(
+            x=[target[0]], y=[target[1]], z=[target[2]],
+            mode='markers',
+            marker=dict(size=15, color='gold', symbol='diamond'),
+            name='Target'
+        ))
+        
+        # Update layout (like test file)
+        status = "SUCCESS ✅" if not final_collision_check.has_collision else "COLLISION ❌"
+        collision_info = f"Final min distance: {final_collision_check.min_distance:.1f}mm"
         
         fig.update_layout(
-            title=f'Complete Collision-Aware Pipeline with Tube Visualization - {status}<br>'
-                  f'Target: ({target_x}, {target_y}, {target_z}) | {collision_info}<br>'
-                  f'Iterations: {collision_result.collision_iterations} | Time: {collision_result.total_collision_time_ms:.1f}ms | '
-                  f'Final Error: {collision_result.fabrik_result.final_error:.3f}mm',
+            title=f'Complete Collision-Aware Pipeline - {status}<br>'
+                  f'Steps: FABRIK → U Points → Swarm → Convert → Final FABRIK → MOTOR<br>'
+                  f'{collision_info} | Total Time: {total_time:.1f}ms | Swarm: {step3_time:.1f}ms',
             scene=dict(
                 xaxis_title='X (mm)',
                 yaxis_title='Y (mm)',
                 zaxis_title='Z (mm)',
                 aspectmode='data',
                 camera=dict(
-                    eye=dict(x=1.3, y=1.3, z=1.2)
+                    eye=dict(x=1.2, y=1.2, z=1.2)
                 )
             ),
-            height=900,
+            height=800,
             legend=dict(
                 x=0.02,
                 y=0.98,
-                bgcolor='rgba(255,255,255,0.9)',
-                font=dict(size=9)
+                bgcolor='rgba(255,255,255,0.8)'
             )
         )
         
-        # Show the plot
-        print("Displaying visualization...")
         fig.show()
         
-        return collision_result.fabrik_result, collision_result, segment_result
+        # Print detailed analysis with timing (enhanced)
+        print(f"\nPipeline Analysis:")
+        print(f"Initial FABRIK error: {initial_fabrik_error:.3f}mm")
+        print(f"Final FABRIK error: {final_fabrik.final_error:.3f}mm")
+        print(f"Final MOTOR error: {final_motor_result.fabrik_error:.3f}mm")
+        print(f"Collision detected initially: {collision_result.has_collision}")
+        print(f"Min distance to obstacles: {collision_result.min_distance:.2f}mm")
+        print(f"Final solution collision-free: {not final_collision_check.has_collision}")
+        print(f"Final min distance: {final_collision_check.min_distance:.2f}mm")
+        print(f"Waypoint conversion successful: {conversion_result.conversion_successful}")
+        if conversion_result.conversion_successful:
+            print(f"Total reach after conversion: {conversion_result.total_reach:.1f}mm")
+        
+        # Detailed timing breakdown
+        print(f"\n=== PERFORMANCE BREAKDOWN ===")
+        print(f"Step 1 - Initial FABRIK: {step1_time:.2f}ms (FABRIK: {initial_solve_time:.2f}ms)")
+        print(f"Step 2 - U Points extraction: {step2_time:.2f}ms")
+        print(f"Step 3 - Collision detection + Swarm: {step3_time:.2f}ms")
+        print(f"Step 4 - Waypoint conversion: {step4_time:.2f}ms")
+        print(f"Step 5 - Final FABRIK: {step5_time:.2f}ms (FABRIK: {final_fabrik_solve_time:.2f}ms)")
+        print(f"Step 6 - Final motor calculation: {step6_time:.2f}ms")
+        print(f"Step 7 - Final collision verification: {step7_time:.2f}ms")
+        print(f"TOTAL PIPELINE TIME: {total_time:.2f}ms")
+        
+        # Segment calculation timing
+        if hasattr(final_motor_result, 'segment_calculation_time_ms'):
+            print(f"Segment calculation (included): {final_motor_result.segment_calculation_time_ms:.2f}ms")
+        
+        return final_motor_result
         
     except Exception as e:
-        print(f"Error in collision-aware solving: {e}")
+        print(f"Pipeline visualization failed: {e}")
         import traceback
         traceback.print_exc()
-        return None, None, None
+        return None
 
 def solve_without_collision_detection_visual(target_x, target_y, target_z, current_positions=None):
     """Solve using traditional approach with basic visualization"""
@@ -522,8 +647,8 @@ def solve_without_collision_detection_visual(target_x, target_y, target_z, curre
         traceback.print_exc()
         return None
 
-def print_motor_results(motor_result, collision_result=None, segment_result=None, title="MOTOR RESULTS"):
-    """Print motor calculation results with performance breakdown"""
+def print_motor_results(motor_result, title="MOTOR RESULTS"):
+    """Print motor calculation results"""
     if motor_result is None:
         print("No motor results to display.")
         return
@@ -549,17 +674,6 @@ def print_motor_results(motor_result, collision_result=None, segment_result=None
             
             print(f"  Motors: z_A={level_data.z_A:.3f}, z_B={level_data.z_B:.3f}, z_C={level_data.z_C:.3f}")
             print(f"  Joints: prismatic={level_data.prismatic_joint:.3f}, roll={level_data.roll_joint:.1f}°, pitch={level_data.pitch_joint:.1f}°")
-    
-    # Performance breakdown
-    print(f"\n=== PERFORMANCE BREAKDOWN ===")
-    if hasattr(motor_result, 'solve_time_ms'):
-        print(f"FABRIK solving: {motor_result.solve_time_ms:.2f}ms")
-    if collision_result:
-        print(f"Collision detection: {collision_result.total_collision_time_ms:.2f}ms")
-    if segment_result:
-        print(f"Segment calculation: {segment_result.calculation_time_ms:.2f}ms")
-    elif hasattr(motor_result, 'segment_calculation_time_ms'):
-        print(f"Segment calculation: {motor_result.segment_calculation_time_ms:.2f}ms")
 
 def main():
     # Parse command line arguments
@@ -584,27 +698,16 @@ def main():
         import delta_robot
         
         if enable_collision:
-            # Collision-aware approach with detailed visualization
-            fabrik_result, collision_result, segment_result = solve_and_visualize_collision_aware(
+            # Collision-aware approach with detailed visualization (like test file)
+            motor_result = create_detailed_pipeline_visualization(
                 target_x, target_y, target_z, current_positions, enable_obstacles=True)
             
-            if fabrik_result:
-                # Calculate motor results using collision-free joint positions
-                fabrik_joint_positions = []
-                for joint in fabrik_result.final_chain.joints:
-                    if hasattr(joint.position, 'shape'):
-                        fabrik_joint_positions.append(joint.position)
-                    else:
-                        fabrik_joint_positions.append(np.array([joint.position.x(), joint.position.y(), joint.position.z()]))
-                
-                motor_result = delta_robot.motor.MotorModule.calculate_motors(
-                    target_x, target_y, target_z, fabrik_joint_positions)
-                
-                print_motor_results(motor_result, collision_result, segment_result, "COLLISION-AWARE MOTOR RESULTS")
+            if motor_result:
+                print_motor_results(motor_result, "FINAL COLLISION-AWARE MOTOR RESULTS")
         else:
             # Traditional approach with basic visualization
             motor_result = solve_without_collision_detection_visual(target_x, target_y, target_z, current_positions)
-            print_motor_results(motor_result, title="TRADITIONAL MOTOR RESULTS")
+            print_motor_results(motor_result, "TRADITIONAL MOTOR RESULTS")
         
     except ImportError as e:
         print(f"ImportError: {e}")

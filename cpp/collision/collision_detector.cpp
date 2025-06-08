@@ -70,7 +70,7 @@ public:
         obstacles.resize(obs.size());
         for (size_t i = 0; i < obs.size(); ++i) {
             obstacles[i].center = obs[i].center;
-            obstacles[i].radius = obs[i].radius + diameter / 2.0;
+            obstacles[i].radius = obs[i].radius;
         }
         
         // Calculate original cumulative distances
