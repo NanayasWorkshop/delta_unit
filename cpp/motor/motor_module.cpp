@@ -1,5 +1,5 @@
 #include "motor_module.hpp"
-#include "fabrik_initialization.hpp"
+#include "../fabrik/fabrik_initialization.hpp"
 #include <cmath>
 #include <iostream>
 #include <optional>
@@ -40,7 +40,7 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position,
     // Pass timing information from FABRIK result
     MotorResult motor_result(target_position, fabrik_result.converged, fabrik_result.final_error, fabrik_result.solve_time_ms);
     
-    // Extract segment data and joint positions from FABRIK result
+    // NEW: Extract segment data using SegmentCalculator (separated for performance)
     extract_original_segment_data(fabrik_result, motor_result);
     extract_fabrik_joint_positions(fabrik_result, motor_result);
     
@@ -124,11 +124,31 @@ MotorResult MotorModule::calculate_motors(const Vector3& target_position,
 }
 
 void MotorModule::extract_original_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result) {
+    // NEW: Use SegmentCalculator instead of FABRIK segment extraction
+    
     motor_result.original_segment_numbers.clear();
     motor_result.original_segment_positions.clear();
-    for (const auto& seg_data : fabrik_result.segment_end_effectors) {
+    
+    // Calculate segment end-effectors using the optimized SegmentCalculator
+    SegmentCalculationResult segment_result = SegmentCalculator::calculate_segment_end_effectors(fabrik_result.final_chain);
+    
+    // Store timing information
+    motor_result.segment_calculation_time_ms = segment_result.calculation_time_ms;
+    
+    if (!segment_result.calculation_successful) {
+        std::cerr << "Warning: SegmentCalculator failed to calculate segment end-effectors" << std::endl;
+        return;
+    }
+    
+    // Extract segment data from SegmentCalculator result
+    for (const auto& seg_data : segment_result.segment_end_effectors) {
         motor_result.original_segment_numbers.push_back(seg_data.segment_number);
         motor_result.original_segment_positions.push_back(seg_data.end_effector_position);
+    }
+    
+    if (motor_result.original_segment_positions.size() > 0) {
+        std::cout << "SegmentCalculator: Calculated " << motor_result.original_segment_positions.size() 
+                  << " segment end-effectors in " << segment_result.calculation_time_ms << "ms" << std::endl;
     }
 }
 

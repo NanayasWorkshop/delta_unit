@@ -34,7 +34,7 @@ eigen_flags = [
 ]
 
 ext_modules = [
-    # CONSOLIDATED MODULE with Complete Collision Detection Pipeline
+    # CONSOLIDATED MODULE with Complete Collision Detection Pipeline + Optimized Segment Calculator
     Pybind11Extension(
         "delta_robot.delta_robot_complete",
         [
@@ -51,7 +51,7 @@ ext_modules = [
             "cpp/kinematics/kinematics_module.cpp",
             "cpp/kinematics/orientation_module.cpp",
             
-            # FABRIK implementations
+            # FABRIK implementations (optimized - no segment extraction)
             "cpp/fabrik/fabrik_initialization.cpp",
             "cpp/fabrik/fabrik_backward.cpp",
             "cpp/fabrik/fabrik_forward.cpp",
@@ -59,12 +59,13 @@ ext_modules = [
             
             # Motor implementation
             "cpp/motor/motor_module.cpp",
+            "cpp/motor/segment_calculator.cpp",  # NEW: Separated segment calculator for performance
             
             # Complete collision detection pipeline implementation
             "cpp/collision/u_points_extractor.cpp",
             "cpp/collision/collision_detector.cpp",
             "cpp/collision/waypoint_converter.cpp",
-            "cpp/collision/collision_aware_solver.cpp",  # NEW: Main orchestrator
+            "cpp/collision/collision_aware_solver.cpp",  # Main orchestrator
         ],
         include_dirs=[
             "cpp/include", 
@@ -83,8 +84,8 @@ ext_modules = [
 
 setup(
     name="delta_unit",
-    version="1.2.0",  # Updated version for collision-aware solver
-    description="Delta Robot Kinematics and Control with Complete Collision Detection Pipeline",
+    version="1.3.0",  # Updated version for optimized segment calculator
+    description="Delta Robot Kinematics and Control with Complete Collision Detection Pipeline + Optimized Segment Calculator",
     author="Delta Robot Team",
     packages=find_packages(),
     ext_modules=ext_modules,

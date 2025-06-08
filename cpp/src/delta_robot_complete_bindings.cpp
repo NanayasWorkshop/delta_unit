@@ -1,4 +1,4 @@
-// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE
+// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE + SEGMENT CALCULATOR
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
@@ -13,15 +13,16 @@
 #include "kinematics_module.hpp"
 #include "orientation_module.hpp"
 #include "motor_module.hpp"
+#include "segment_calculator.hpp"  // NEW: Separated segment calculator
 #include "u_points_extractor.hpp"
 #include "collision_detector.hpp"
 #include "waypoint_converter.hpp"
-#include "collision_aware_solver.hpp"  // NEW: Main collision orchestrator
+#include "collision_aware_solver.hpp"
 
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_robot_complete, m) {
-    m.doc() = "Complete Delta Robot Module - All functionality including collision-aware solving";
+    m.doc() = "Complete Delta Robot Module - All functionality including collision-aware solving + optimized segment calculator";
     
     // =============================================================================
     // TYPES & ENUMS
@@ -42,7 +43,25 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     
     pybind11::class_<delta::FabrikChain>(m, "FabrikChain")
         .def_readwrite("joints", &delta::FabrikChain::joints)
-        .def_readwrite("segments", &delta::FabrikChain::segments);
+        .def_readwrite("segments", &delta::FabrikChain::segments)
+        .def_readwrite("num_robot_segments", &delta::FabrikChain::num_robot_segments);
+    
+    // =============================================================================
+    // SEGMENT CALCULATOR STRUCTURES (NEW)
+    // =============================================================================
+    
+    pybind11::class_<delta::SegmentEndEffectorData>(m, "SegmentEndEffectorData")
+        .def_readonly("segment_number", &delta::SegmentEndEffectorData::segment_number)
+        .def_readonly("end_effector_position", &delta::SegmentEndEffectorData::end_effector_position)
+        .def_readonly("direction_from_base", &delta::SegmentEndEffectorData::direction_from_base)
+        .def_readonly("prismatic_length", &delta::SegmentEndEffectorData::prismatic_length)
+        .def_readonly("h_to_g_distance", &delta::SegmentEndEffectorData::h_to_g_distance)
+        .def_readonly("fabrik_distance_from_base", &delta::SegmentEndEffectorData::fabrik_distance_from_base);
+    
+    pybind11::class_<delta::SegmentCalculationResult>(m, "SegmentCalculationResult")
+        .def_readonly("segment_end_effectors", &delta::SegmentCalculationResult::segment_end_effectors)
+        .def_readonly("calculation_time_ms", &delta::SegmentCalculationResult::calculation_time_ms)
+        .def_readonly("calculation_successful", &delta::SegmentCalculationResult::calculation_successful);
     
     // =============================================================================
     // COLLISION STRUCTURES
@@ -67,7 +86,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("total_reach", &delta::WaypointConversionResult::total_reach)
         .def_readonly("conversion_successful", &delta::WaypointConversionResult::conversion_successful);
     
-    // NEW: Collision-aware solver structures
+    // Collision-aware solver structures
     pybind11::class_<delta::CollisionAwareSolutionResult>(m, "CollisionAwareSolutionResult")
         .def_readonly("fabrik_result", &delta::CollisionAwareSolutionResult::fabrik_result)
         .def_readonly("collision_free", &delta::CollisionAwareSolutionResult::collision_free)
@@ -106,7 +125,8 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     pybind11::class_<delta::FabrikSolutionResult>(m, "FabrikSolutionResult")
         .def_readonly("final_chain", &delta::FabrikSolutionResult::final_chain)
         .def_readonly("converged", &delta::FabrikSolutionResult::converged)
-        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error);
+        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error)
+        .def_readonly("solve_time_ms", &delta::FabrikSolutionResult::solve_time_ms);
     
     pybind11::class_<delta::MotorResult>(m, "MotorResult")
         .def_readonly("target_position", &delta::MotorResult::target_position)
@@ -116,7 +136,8 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("original_segment_numbers", &delta::MotorResult::original_segment_numbers)
         .def_readonly("original_segment_positions", &delta::MotorResult::original_segment_positions)
         .def_readonly("fabrik_joint_positions", &delta::MotorResult::fabrik_joint_positions)
-        .def_readonly("levels", &delta::MotorResult::levels);
+        .def_readonly("levels", &delta::MotorResult::levels)
+        .def_readonly("segment_calculation_time_ms", &delta::MotorResult::segment_calculation_time_ms);  // NEW
     
     pybind11::class_<delta::LevelData>(m, "LevelData")
         .def_readonly("z_A", &delta::LevelData::z_A)
@@ -169,6 +190,26 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS);
     
     // =============================================================================
+    // SEGMENT CALCULATOR (NEW - Separated from FABRIK for Performance)
+    // =============================================================================
+    
+    pybind11::class_<delta::SegmentCalculator>(m, "SegmentCalculator")
+        .def_static("calculate_segment_end_effectors", 
+                   pybind11::overload_cast<const delta::FabrikChain&>(&delta::SegmentCalculator::calculate_segment_end_effectors),
+                   "Calculate segment end-effector positions from collision-free FABRIK chain",
+                   "collision_free_chain"_a)
+        .def_static("calculate_segment_end_effectors", 
+                   pybind11::overload_cast<const delta::FabrikChain&, int>(&delta::SegmentCalculator::calculate_segment_end_effectors),
+                   "Calculate segment end-effectors with custom number of robot segments",
+                   "collision_free_chain"_a, "num_robot_segments"_a)
+        .def_static("is_chain_valid_for_segments", &delta::SegmentCalculator::is_chain_valid_for_segments,
+                   "Validate that a FABRIK chain is suitable for segment calculations",
+                   "chain"_a, "min_segments"_a = 1)
+        .def_static("estimate_calculation_time", &delta::SegmentCalculator::estimate_calculation_time,
+                   "Get the total computational cost estimate for segment calculations",
+                   "num_robot_segments"_a);
+    
+    // =============================================================================
     // COLLISION MODULES (Complete Pipeline)
     // =============================================================================
     
@@ -185,7 +226,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("create_fabrik_chain_from_waypoints", &delta::WaypointConverter::create_fabrik_chain_from_waypoints)
         .def_static("validate_waypoints", &delta::WaypointConverter::validate_waypoints);
     
-    // NEW: Complete collision-aware solver
+    // Complete collision-aware solver
     pybind11::class_<delta::CollisionAwareSolver>(m, "CollisionAwareSolver")
         .def_static("solve_with_collision_avoidance", 
                    pybind11::overload_cast<const delta::Vector3&, const std::vector<delta::Obstacle>&, const delta::CollisionAwareConfig&>
@@ -213,7 +254,11 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("calculate_motors", 
                    pybind11::overload_cast<double, double, double>(&delta::MotorModule::calculate_motors))
         .def_static("calculate_motors", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::MotorModule::calculate_motors));
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::MotorModule::calculate_motors))
+        .def_static("calculate_motors", 
+                   pybind11::overload_cast<double, double, double, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors))
+        .def_static("calculate_motors", 
+                   pybind11::overload_cast<const delta::Vector3&, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors));
     
     // =============================================================================
     // CONVENIENCE FUNCTIONS
@@ -224,11 +269,16 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         return delta::MotorModule::calculate_motors(x, y, z);
     });
     
-    // NEW: Collision-aware convenience functions
+    // Collision-aware convenience functions
     m.def("solve_with_collision_avoidance", [](double x, double y, double z, const std::vector<delta::Obstacle>& obstacles) {
         delta::Vector3 target(x, y, z);
         return delta::CollisionAwareSolver::solve_with_collision_avoidance(target, obstacles);
     }, "Convenience function for collision-aware solving with target coordinates");
+    
+    // NEW: Segment calculator convenience function
+    m.def("calculate_segment_end_effectors", [](const delta::FabrikChain& chain) {
+        return delta::SegmentCalculator::calculate_segment_end_effectors(chain);
+    }, "Convenience function for calculating segment end-effectors");
     
     // =============================================================================
     // CONSTANTS

@@ -217,9 +217,6 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
             result.forward_iterations = total_forward_iterations;
             result.convergence_history = convergence_history;
             
-            // NEW! Extract segment end-effector positions
-            result.segment_end_effectors = extract_segment_end_effectors(current_chain);
-            
             return result;
         }
         
@@ -261,9 +258,6 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
     result.forward_iterations = total_forward_iterations;
     result.convergence_history = convergence_history;
     
-    // NEW! Extract segment end-effector positions even if not converged
-    result.segment_end_effectors = extract_segment_end_effectors(current_chain);
-    
     return result;
 }
 
@@ -291,81 +285,6 @@ void FabrikSolver::update_segment_lengths(FabrikChain& chain, const std::vector<
             //           << " (change: " << change << ")" << std::endl;
         }
     }
-}
-
-// NEW! Extract segment end-effector positions from solved chain
-std::vector<SegmentEndEffectorData> FabrikSolver::extract_segment_end_effectors(const FabrikChain& solved_chain) {
-    std::vector<SegmentEndEffectorData> segment_data;
-    
-    int num_robot_segments = solved_chain.num_robot_segments;
-    if (num_robot_segments == 0 || solved_chain.joints.size() < 2) {
-        return segment_data; // Empty result for invalid chains
-    }
-    
-    // Extract direction pairs from solved chain (reuse existing logic)
-    std::vector<SegmentDirectionPair> direction_pairs = FabrikForward::extract_direction_pairs(solved_chain);
-    
-    // Calculate segment properties from direction pairs (reuse existing logic)
-    std::vector<SegmentProperties> segment_properties = FabrikForward::calculate_segment_properties(direction_pairs);
-    
-    // Calculate actual end-effector positions for each physical segment
-    for (int seg = 0; seg < num_robot_segments; seg++) {
-        Vector3 segment_end_effector;
-        double prismatic_length = 0.0;
-        double h_to_g_distance = 0.0;
-        
-        if (seg < static_cast<int>(segment_properties.size())) {
-            prismatic_length = segment_properties[seg].prismatic_length;
-            h_to_g_distance = segment_properties[seg].h_to_g_distance;
-        }
-        
-        if (seg == num_robot_segments - 1) {
-            // Final segment (S3): Should be exactly at the target
-            segment_end_effector = solved_chain.joints.back().position;
-        } else {
-            // Segments S1 and S2: Calculate position between joints
-            // S1: Between J1 and J2 → start from J1, go towards J2
-            // S2: Between J2 and J3 → start from J2, go towards J3
-            
-            int joint_start = seg + 1;  // J[seg+1] - start from J1 for S1, J2 for S2
-            int joint_end = seg + 2;    // J[seg+2] - go towards J2 for S1, J3 for S2
-            
-            if (joint_start >= static_cast<int>(solved_chain.joints.size()) || 
-                joint_end >= static_cast<int>(solved_chain.joints.size())) break;
-            
-            // Get joint positions
-            Vector3 joint_start_pos = solved_chain.joints[joint_start].position;
-            Vector3 joint_end_pos = solved_chain.joints[joint_end].position;
-            
-            // Calculate direction from joint_start to joint_end
-            Vector3 segment_direction = (joint_end_pos - joint_start_pos).normalized();
-            
-            // Calculate the actual end-effector position for this segment
-            double distance_to_end_effector = h_to_g_distance / 2.0 + WORKING_HEIGHT;
-            
-            segment_end_effector = joint_start_pos + segment_direction * distance_to_end_effector;
-        }
-        
-        // Calculate direction from world origin to this end-effector
-        Vector3 direction_from_base = segment_end_effector.normalized();
-        
-        // Calculate distance along FABRIK chain from base to this point
-        double fabrik_distance = (segment_end_effector - solved_chain.joints[0].position).norm();
-        
-        // Create segment data
-        SegmentEndEffectorData data(
-            seg + 1,                    // segment_number (1-based)
-            segment_end_effector,       // end_effector_position
-            direction_from_base,        // direction_from_base
-            prismatic_length,           // prismatic_length
-            h_to_g_distance,           // h_to_g_distance
-            fabrik_distance            // fabrik_distance_from_base
-        );
-        
-        segment_data.push_back(data);
-    }
-    
-    return segment_data;
 }
 
 bool FabrikSolver::has_converged(const Vector3& end_effector, const Vector3& target, double tolerance) {

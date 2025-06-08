@@ -1,5 +1,5 @@
 """
-Delta Robot Python Package (Consolidated Module with Complete Collision Pipeline)
+Delta Robot Python Package (Consolidated Module with Complete Collision Pipeline + Segment Calculator)
 """
 import numpy as np
 
@@ -37,20 +37,25 @@ try:
         CollisionDetector = delta_complete.CollisionDetector
         WaypointConverter = delta_complete.WaypointConverter
         
-        # Main collision-aware solver (NEW)
+        # Main collision-aware solver
         CollisionAwareSolver = delta_complete.CollisionAwareSolver
         
         # Data structures
         Obstacle = delta_complete.Obstacle
         CollisionResult = delta_complete.CollisionResult
         WaypointConversionResult = delta_complete.WaypointConversionResult
-        CollisionAwareSolutionResult = delta_complete.CollisionAwareSolutionResult  # NEW
-        CollisionAwareConfig = delta_complete.CollisionAwareConfig  # NEW
+        CollisionAwareSolutionResult = delta_complete.CollisionAwareSolutionResult
+        CollisionAwareConfig = delta_complete.CollisionAwareConfig
         
     class motor:
         MotorModule = delta_complete.MotorModule
         MotorResult = delta_complete.MotorResult
         LevelData = delta_complete.LevelData
+        
+        # NEW: Segment Calculator (separated from FABRIK for performance)
+        SegmentCalculator = delta_complete.SegmentCalculator
+        SegmentCalculationResult = delta_complete.SegmentCalculationResult
+        SegmentEndEffectorData = delta_complete.SegmentEndEffectorData
         
     # Constants from the consolidated module
     FABRIK_TOLERANCE = delta_complete.FABRIK_TOLERANCE
@@ -89,6 +94,24 @@ def solve_with_collision_avoidance(target_x, target_y, target_z, obstacles, max_
     target = np.array([target_x, target_y, target_z])
     return collision.CollisionAwareSolver.solve(target, obstacles, max_iterations)
 
+def calculate_segment_end_effectors(fabrik_chain, num_segments=None):
+    """
+    Calculate complex segment end-effector positions from a solved FABRIK chain.
+    
+    This is now separated from FABRIK for performance - only call after collision-free solution.
+    
+    Args:
+        fabrik_chain: Solved FABRIK chain
+        num_segments: Number of robot segments (optional)
+    
+    Returns:
+        SegmentCalculationResult with segment end-effector data
+    """
+    if num_segments is None:
+        return motor.SegmentCalculator.calculate_segment_end_effectors(fabrik_chain)
+    else:
+        return motor.SegmentCalculator.calculate_segment_end_effectors(fabrik_chain, num_segments)
+
 def create_test_obstacles():
     """Create test obstacles for collision detection."""
     return collision.CollisionDetector.create_test_obstacles()
@@ -99,7 +122,7 @@ def create_obstacle(center_x, center_y, center_z, radius):
     return collision.Obstacle(center, radius)
 
 def verify_installation():
-    """Verify that the consolidated module with collision detection imported correctly."""
+    """Verify that the consolidated module with collision detection and segment calculator imported correctly."""
     try:
         # Test basic motor calculation
         result = motor.MotorModule.calculate_motors(100, 50, 300)
@@ -120,8 +143,7 @@ def verify_installation():
         u_points = collision.UPointsExtractor.extract_u_points_from_positions(joint_positions)
         print(f"✓ Extracted {len(u_points)} U points!")
         
-        # Test collision detection with proper type conversion
-        # The C++ function expects the raw return from UPointsExtractor, not converted numpy arrays
+        # Test collision detection
         collision_result = collision.CollisionDetector.check_and_avoid(u_points, obstacles, delta_complete.DEFAULT_SPLINE_DIAMETER)
         print(f"✓ Collision detection working! (has_collision: {collision_result.has_collision})")
         
@@ -130,7 +152,12 @@ def verify_installation():
         collision_aware_result = collision.CollisionAwareSolver.solve(target, obstacles, 1)
         print(f"✓ Collision-aware solver working! (collision_free: {collision_aware_result.collision_free})")
         
-        print("✓ Delta robot module with COMPLETE collision detection pipeline imported successfully!")
+        # Test NEW segment calculator (separated from FABRIK)
+        fabrik_result = solve_fabrik_ik(100, 0, 300)
+        segment_result = motor.SegmentCalculator.calculate_segment_end_effectors(fabrik_result.final_chain)
+        print(f"✓ Segment calculator working! (calculated {len(segment_result.segment_end_effectors)} segments in {segment_result.calculation_time_ms:.2f}ms)")
+        
+        print("✓ Delta robot module with COMPLETE collision detection pipeline + optimized segment calculator imported successfully!")
         return True
         
     except Exception as e:
@@ -143,6 +170,7 @@ def verify_installation():
 __all__ = [
     'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'collision', 'motor',
     'calculate_motors', 'solve_fabrik_ik', 'solve_with_collision_avoidance', 
+    'calculate_segment_end_effectors',  # NEW: Direct access to segment calculator
     'create_test_obstacles', 'create_obstacle', 'verify_installation',
     'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS', 'DEFAULT_SPLINE_DIAMETER'
 ]

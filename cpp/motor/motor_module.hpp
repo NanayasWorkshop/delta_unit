@@ -2,9 +2,10 @@
 #define DELTA_MOTOR_MODULE_HPP
 
 #include "../core/math_utils.hpp"
-#include "fabrik_solver.hpp"
-#include "kinematics_module.hpp"
-#include "orientation_module.hpp"
+#include "../fabrik/fabrik_solver.hpp"
+#include "../kinematics/kinematics_module.hpp"
+#include "../kinematics/orientation_module.hpp"
+#include "segment_calculator.hpp"  // NEW: Use SegmentCalculator instead of FABRIK segment extraction
 #include <vector>
 #include <optional>
 
@@ -42,18 +43,22 @@ struct MotorResult {
     double fabrik_error;                        // FABRIK final error
     double solve_time_ms;                       // FABRIK solve time in milliseconds
     
-    // Original segment data from FABRIK
+    // Original segment data from SegmentCalculator (not FABRIK)
     std::vector<int> original_segment_numbers;      // [1, 2, 3, ...]
     std::vector<Vector3> original_segment_positions; // Actual segment end-effector positions in global frame
     
-    // NEW: FABRIK joint positions from solved chain
+    // FABRIK joint positions from solved chain
     std::vector<Vector3> fabrik_joint_positions;    // Joint positions from final_chain.joints
     
     // Data for each level of transformation
     std::vector<LevelData> levels;
+    
+    // NEW: Segment calculation timing
+    double segment_calculation_time_ms;             // Time spent calculating segments
 
     MotorResult(const Vector3& target, bool converged, double error, double time_ms = 0.0)
-        : target_position(target), fabrik_converged(converged), fabrik_error(error), solve_time_ms(time_ms) {}
+        : target_position(target), fabrik_converged(converged), fabrik_error(error), solve_time_ms(time_ms)
+        , segment_calculation_time_ms(0.0) {}
 };
 
 class MotorModule {
@@ -62,17 +67,17 @@ public:
     static MotorResult calculate_motors(double target_x, double target_y, double target_z);
     static MotorResult calculate_motors(const Vector3& target_position);
     
-    // NEW: Calculate motor positions with optional current joint positions
+    // Calculate motor positions with optional current joint positions
     static MotorResult calculate_motors(double target_x, double target_y, double target_z,
                                       const std::optional<std::vector<Vector3>>& current_joint_positions);
     static MotorResult calculate_motors(const Vector3& target_position,
                                       const std::optional<std::vector<Vector3>>& current_joint_positions);
     
 private:
-    // Extract segment positions from FABRIK result
+    // NEW: Extract segment positions using SegmentCalculator (not FABRIK)
     static void extract_original_segment_data(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result);
     
-    // NEW: Extract joint positions from FABRIK result
+    // Extract joint positions from FABRIK result
     static void extract_fabrik_joint_positions(const FabrikSolutionResult& fabrik_result, MotorResult& motor_result);
     
     // Helper: Create rotation matrix from UVW to XYZ alignment
