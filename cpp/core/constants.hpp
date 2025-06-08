@@ -21,7 +21,7 @@ constexpr int FABRIK_MAX_ITERATIONS = 100;                             // Maximu
 constexpr double EPSILON_MATH = 1e-9;                                  // Mathematical epsilon for floating point comparisons
 
 // Collision Avoidance Constants
-constexpr double DEFAULT_SPLINE_DIAMETER = 20.0;                       // Default robot spline thickness
+constexpr double DEFAULT_SPLINE_DIAMETER = 88.0;                       // Default robot spline thickness
 constexpr int SWARM_NUM_SWARMS = 8;                                     // Number of parallel swarms
 constexpr int SWARM_NUM_GENERATIONS = 3;                               // Number of generations
 constexpr int SWARM_ITERATIONS_PER_GENERATION = 60;                    // Iterations per generation

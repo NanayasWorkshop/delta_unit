@@ -41,6 +41,22 @@ public:
                                      const std::string& label = "Waypoint Conversion");
 
 private:
+    // NEW: Core optimization methods (from Python algorithm)
+    static Vector3 optimize_joint_position(const std::vector<Vector3>& waypoints,
+                                         const std::vector<Vector3>& current_joints,
+                                         size_t joint_index);
+    
+    static Vector3 optimize_first_joint(const Vector3& p1, const Vector3& p2);
+    
+    static Vector3 optimize_subsequent_joint(const Vector3& j_prev, 
+                                           const Vector3& p_prev, 
+                                           const Vector3& p_curr);
+    
+    // NEW: Triangle optimization methods
+    static double calculate_triangle_angle_difference(const Vector3& p1, 
+                                                    const Vector3& j, 
+                                                    const Vector3& p2);
+    
     // Calculate segment lengths between consecutive joints
     static std::vector<double> calculate_segment_lengths(const std::vector<Vector3>& joint_positions);
     
