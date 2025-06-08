@@ -68,10 +68,7 @@ private:
     
     // Normalize vector with safety check
     static Vector3 normalize_vector_safe(const Vector3& vector);
-    
-    // Validate individual joint position
-    static bool validate_joint_position(const Vector3& joint_pos, int joint_index);
-    
+
     // Calculate total reach of joint chain
     static double calculate_total_reach(const std::vector<double>& segment_lengths);
 };

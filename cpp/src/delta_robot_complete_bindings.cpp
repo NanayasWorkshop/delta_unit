@@ -162,7 +162,11 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("initialize_straight_up", &delta::FabrikInitialization::initialize_straight_up);
     
     pybind11::class_<delta::FabrikSolver>(m, "FabrikSolver")
-        .def_static("solve", &delta::FabrikSolver::solve);
+        .def_static("solve", &delta::FabrikSolver::solve,
+                   "Solve FABRIK inverse kinematics",
+                   "initial_chain"_a, "target_position"_a, 
+                   "tolerance"_a = delta::FABRIK_TOLERANCE, 
+                   "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS);
     
     // =============================================================================
     // COLLISION MODULES (Complete Pipeline)

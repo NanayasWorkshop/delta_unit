@@ -14,44 +14,41 @@ WaypointConversionResult WaypointConverter::convert_waypoints_to_joints(
         return WaypointConversionResult(false);
     }
     
-    // WAYPOINT TO JOINT MAPPING:
-    // waypoints[0] = P1 = u1 = J0 (base joint - direct mapping)
-    // waypoints[1] = P2 = u2 = midpoint(J1,J2) 
-    // waypoints[2] = P3 = u3 = midpoint(J2,J3)
-    // ...
-    // waypoints[n-1] = P8 = u8 = J8 (end-effector - direct mapping)
-    //
-    // GOAL: Find J1, J2, J3, ..., J7 such that:
-    // - Each Ji forms optimal triangles with consecutive waypoints
-    // - Angle differences are minimized for geometric consistency
+    // SIMPLIFIED WAYPOINT TO JOINT MAPPING:
+    // Instead of complex triangle optimization, use simple 50% midpoint approach
+    // Joint[i] = 50% between waypoint[i-1] and waypoint[i]
     
     std::vector<Vector3> joint_positions;
     std::vector<double> segment_lengths;
     std::vector<double> joint_angles_deg;
     
     try {
-        // Step 1: Base joint (J0) = first waypoint (P1)
+        // Step 1: Base joint (J0) = first waypoint (P1) - direct mapping
         joint_positions.push_back(waypoints[0]);
         
-        // Step 2: Optimize each intermediate joint using triangle method
-        for (size_t i = 0; i < waypoints.size() - 1; ++i) {
-            Vector3 optimized_joint = optimize_joint_position(waypoints, joint_positions, i);
-            joint_positions.push_back(optimized_joint);
+        // Step 2: SIMPLIFIED - Place each joint at 50% between consecutive waypoints
+        for (size_t i = 1; i < waypoints.size(); ++i) {
+            Vector3 prev_waypoint = waypoints[i-1];
+            Vector3 curr_waypoint = waypoints[i];
+            
+            // Simple 50% midpoint calculation
+            Vector3 joint_position = (prev_waypoint + curr_waypoint) / 2.0;
+            joint_positions.push_back(joint_position);
         }
         
-        // Step 3: End-effector joint (J8) = last waypoint (u8)
+        // Step 3: End-effector joint (J8) = last waypoint (u8) - direct mapping
         joint_positions.push_back(waypoints.back());
         
-        // Step 3: Calculate segment lengths between consecutive joints
+        // Step 4: Calculate segment lengths between consecutive joints
         segment_lengths = calculate_segment_lengths(joint_positions);
         
-        // Step 4: Calculate joint angles (bend angles between segments)
+        // Step 5: Calculate joint angles (bend angles between segments)
         joint_angles_deg = calculate_joint_angles(joint_positions);
         
-        // Step 5: Calculate total reach
+        // Step 6: Calculate total reach
         double total_reach = calculate_total_reach(segment_lengths);
         
-        // Step 6: Create successful result
+        // Step 7: Create successful result
         WaypointConversionResult result(true);
         result.joint_positions = joint_positions;
         result.segment_lengths = segment_lengths;
@@ -66,6 +63,8 @@ WaypointConversionResult WaypointConverter::convert_waypoints_to_joints(
     }
 }
 
+// COMMENTED OUT - Original complex triangle optimization methods
+/*
 Vector3 WaypointConverter::optimize_joint_position(const std::vector<Vector3>& waypoints,
                                                   const std::vector<Vector3>& current_joints,
                                                   size_t joint_index) {
@@ -168,6 +167,7 @@ double WaypointConverter::calculate_triangle_angle_difference(const Vector3& p1,
     
     return std::abs(angle1 - angle2);
 }
+*/
 
 double WaypointConverter::calculate_angle_between_vectors(const Vector3& v1, const Vector3& v2) {
     double v1_norm = v1.norm();
@@ -297,22 +297,7 @@ Vector3 WaypointConverter::normalize_vector_safe(const Vector3& vector) {
     return vector / norm;
 }
 
-bool WaypointConverter::validate_joint_position(const Vector3& joint_pos, int joint_index) {
-    // Basic validation: check if position is reasonable
-    double distance_from_origin = joint_pos.norm();
-    
-    // Maximum reasonable distance from origin (2 meters)
-    if (distance_from_origin > 2000.0) {
-        return false;
-    }
-    
-    // Check Z coordinate is positive (robot constraint)
-    if (joint_pos.z() < -100.0) {  // Allow some negative Z
-        return false;
-    }
-    
-    return true;
-}
+// REMOVED: validate_joint_position - was incorrect validation logic
 
 double WaypointConverter::calculate_total_reach(const std::vector<double>& segment_lengths) {
     double total = 0.0;

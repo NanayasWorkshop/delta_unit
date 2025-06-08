@@ -26,14 +26,14 @@ struct CollisionAwareSolutionResult {
 
 // Configuration for collision-aware solving
 struct CollisionAwareConfig {
-    int max_collision_iterations;               // Maximum collision avoidance iterations (default: 3)
+    int max_collision_iterations;               // Maximum collision avoidance iterations
     double spline_diameter;                     // Robot spline diameter for collision detection
     bool enable_collision_detection;            // Enable/disable collision detection
     bool verbose_logging;                       // Enable debug output
     FabrikSolverConfig fabrik_config;           // FABRIK solver configuration
     
     CollisionAwareConfig()
-        : max_collision_iterations(3)
+        : max_collision_iterations(MAX_COLLISION_ITERATIONS)    // Use constant instead of hardcoded value
         , spline_diameter(DEFAULT_SPLINE_DIAMETER)
         , enable_collision_detection(true)
         , verbose_logging(false) {}
@@ -60,7 +60,7 @@ public:
     static CollisionAwareSolutionResult solve(
         const Vector3& target_position,
         const std::vector<Obstacle>& obstacles,
-        int max_iterations = 3);
+        int max_iterations = MAX_COLLISION_ITERATIONS);   // Use constant as default
     
     // Check if a FABRIK solution has collisions
     static bool has_collision(const FabrikChain& chain, 

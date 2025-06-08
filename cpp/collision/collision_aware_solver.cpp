@@ -131,6 +131,7 @@ CollisionAwareSolutionResult CollisionAwareSolver::run_collision_aware_algorithm
         // Step 4: If no collision → we're done!
         if (!collision_result.has_collision) {
             if (config.verbose_logging) {
+                std::cout << "✓ Re-checked collision on new FABRIK solution - NO COLLISION DETECTED" << std::endl;
                 std::cout << "✓ No collision detected - solution is collision-free!" << std::endl;
             }
             

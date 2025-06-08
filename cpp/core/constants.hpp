@@ -22,6 +22,7 @@ constexpr double EPSILON_MATH = 1e-9;                                  // Mathem
 
 // Collision Avoidance Constants
 constexpr double DEFAULT_SPLINE_DIAMETER = 88.0;                       // Default robot spline thickness
+constexpr int MAX_COLLISION_ITERATIONS = 5;                            // Maximum collision detection iterations
 constexpr int SWARM_NUM_SWARMS = 8;                                     // Number of parallel swarms
 constexpr int SWARM_NUM_GENERATIONS = 3;                               // Number of generations
 constexpr int SWARM_ITERATIONS_PER_GENERATION = 60;                    // Iterations per generation
