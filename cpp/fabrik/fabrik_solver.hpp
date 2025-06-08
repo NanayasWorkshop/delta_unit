@@ -6,7 +6,6 @@
 #include "fabrik_backward.hpp"
 #include "fabrik_forward.hpp"
 #include "fabrik_initialization.hpp"
-#include "../collision/spline_collision_avoidance.hpp"  // NEW: Collision avoidance integration
 
 namespace delta {
 
@@ -37,21 +36,13 @@ struct FabrikSolutionResult {
     int forward_iterations;                     // Number of forward iterations
     std::vector<Vector3> convergence_history;   // End-effector position each iteration
     double solve_time_ms;                       // Time taken to solve
-    std::vector<SegmentEndEffectorData> segment_end_effectors;  // Physical segment end-effectors
-    std::vector<Vector3> spline_points;         // Points for spline visualization
-    std::vector<Vector3> segment_midpoints;     // 50% points of each segment
-    
-    // NEW: Collision avoidance fields
-    std::vector<Vector3> safe_spline_points;    // Collision-free spline points
-    bool collision_avoidance_applied;           // Whether collision avoidance was used
-    CollisionAvoidanceResult collision_result;  // Detailed collision avoidance info
+    std::vector<SegmentEndEffectorData> segment_end_effectors;  // NEW! Physical segment end-effectors
     
     FabrikSolutionResult(const FabrikChain& chain, const Vector3& target, const Vector3& achieved,
                         bool conv, double error, int total_iter)
         : final_chain(chain), target_position(target), achieved_position(achieved)
         , converged(conv), final_error(error), total_iterations(total_iter)
-        , backward_iterations(0), forward_iterations(0), solve_time_ms(0.0)
-        , collision_avoidance_applied(false) {}  // Initialize new field
+        , backward_iterations(0), forward_iterations(0), solve_time_ms(0.0) {}
 };
 
 // FABRIK solver configuration
@@ -96,45 +87,6 @@ public:
     static double calculate_chain_error(const FabrikChain& chain);
     static Vector3 get_end_effector_position(const FabrikChain& chain);
     
-    // Spline visualization methods
-    static std::vector<Vector3> extract_spline_points(const FabrikChain& solved_chain);
-    static std::vector<Vector3> calculate_segment_midpoints(const FabrikChain& solved_chain);
-    
-    // NEW: Collision avoidance integration methods
-    
-    /**
-     * Solve FABRIK with automatic collision avoidance
-     */
-    static FabrikSolutionResult solve_with_collision_avoidance(
-        const FabrikChain& initial_chain,
-        const Vector3& target_position,
-        const std::vector<Obstacle>& obstacles,
-        const FabrikSolverConfig& config = FabrikSolverConfig(),
-        double spline_thickness = SPLINE_THICKNESS,
-        double safety_margin = COLLISION_SAFETY_MARGIN
-    );
-    
-    /**
-     * Apply collision avoidance to existing FABRIK result
-     */
-    static CollisionAvoidanceResult apply_collision_avoidance_to_result(
-        FabrikSolutionResult& fabrik_result,
-        const std::vector<Obstacle>& obstacles,
-        double spline_thickness = SPLINE_THICKNESS,
-        double safety_margin = COLLISION_SAFETY_MARGIN
-    );
-    
-    /**
-     * Convenience method: solve with collision avoidance using default config
-     */
-    static FabrikSolutionResult solve_safe(
-        const FabrikChain& initial_chain,
-        const Vector3& target_position,
-        const std::vector<Obstacle>& obstacles,
-        double tolerance = FABRIK_TOLERANCE,
-        int max_iterations = FABRIK_MAX_ITERATIONS
-    );
-    
     // Utility methods
     static FabrikSolverConfig create_fast_config();     // Fast solving (loose tolerance)
     static FabrikSolverConfig create_precise_config();  // Precise solving (tight tolerance)
@@ -149,7 +101,7 @@ private:
     // Segment length management - CRITICAL for preventing oscillation
     static void update_segment_lengths(FabrikChain& chain, const std::vector<double>& new_lengths);
     
-    // Extract segment end-effector positions from solved chain
+    // NEW! Extract segment end-effector positions from solved chain
     static std::vector<SegmentEndEffectorData> extract_segment_end_effectors(const FabrikChain& solved_chain);
     
     // Convergence checking
@@ -179,38 +131,6 @@ namespace fabrik_utils {
     
     // Validate if target is reachable
     bool is_target_reachable(const FabrikChain& chain, const Vector3& target);
-    
-    // NEW: Collision-aware solving functions
-    
-    /**
-     * Solve delta robot with collision avoidance
-     */
-    FabrikSolutionResult solve_delta_robot_safe(
-        int num_segments, 
-        const Vector3& target,
-        const std::vector<Obstacle>& obstacles,
-        double tolerance = FABRIK_TOLERANCE
-    );
-    
-    /**
-     * Create simple spherical obstacle
-     */
-    Obstacle create_sphere_obstacle(double x, double y, double z, double radius);
-    
-    /**
-     * Create obstacles from list of positions and radii
-     */
-    std::vector<Obstacle> create_obstacles_from_positions(
-        const std::vector<Vector3>& positions,
-        const std::vector<double>& radii
-    );
-    
-    /**
-     * Create obstacles from coordinate tuples (x, y, z, radius)
-     */
-    std::vector<Obstacle> create_obstacles_from_coordinates(
-        const std::vector<std::tuple<double, double, double, double>>& obstacle_data
-    );
 }
 
 } // namespace delta

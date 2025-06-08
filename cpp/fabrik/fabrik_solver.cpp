@@ -102,146 +102,6 @@ Vector3 FabrikSolver::get_end_effector_position(const FabrikChain& chain) {
     return chain.joints.back().position;
 }
 
-// Extract spline points from solved chain
-std::vector<Vector3> FabrikSolver::extract_spline_points(const FabrikChain& solved_chain) {
-    std::vector<Vector3> spline_points;
-    
-    if (solved_chain.joints.size() < 3) {
-        return spline_points; // Need at least 3 joints for this logic
-    }
-    
-    // First point: J0 (base) directly - no midpoint for first segment
-    spline_points.push_back(solved_chain.joints[0].position);
-    
-    // Middle points: 50% along each segment from J1-J2 to J(n-2)-J(n-1)
-    // Skip first segment (J0-J1) and last segment (J(n-1)-Jn)
-    for (size_t i = 1; i < solved_chain.joints.size() - 2; i++) {
-        Vector3 start_joint = solved_chain.joints[i].position;      // J(i)
-        Vector3 end_joint = solved_chain.joints[i + 1].position;    // J(i+1)
-        
-        // 50% midpoint between J(i) and J(i+1)
-        Vector3 midpoint = start_joint + 0.5 * (end_joint - start_joint);
-        spline_points.push_back(midpoint);
-    }
-    
-    // Last point: J_final (end-effector) directly - no midpoint for last segment
-    spline_points.push_back(solved_chain.joints.back().position);
-    
-    return spline_points;
-}
-
-// Calculate segment midpoints from solved chain
-std::vector<Vector3> FabrikSolver::calculate_segment_midpoints(const FabrikChain& solved_chain) {
-    std::vector<Vector3> midpoints;
-    
-    if (solved_chain.joints.size() < 2) {
-        return midpoints; // Need at least 2 joints
-    }
-    
-    // Calculate 50% midpoints for each consecutive joint pair
-    for (size_t i = 0; i < solved_chain.joints.size() - 1; i++) {
-        Vector3 start_joint = solved_chain.joints[i].position;
-        Vector3 end_joint = solved_chain.joints[i + 1].position;
-        
-        // 50% midpoint
-        Vector3 midpoint = start_joint + 0.5 * (end_joint - start_joint);
-        midpoints.push_back(midpoint);
-    }
-    
-    return midpoints;
-}
-
-// =============================================================================
-// NEW: COLLISION AVOIDANCE INTEGRATION METHODS
-// =============================================================================
-
-FabrikSolutionResult FabrikSolver::solve_with_collision_avoidance(
-    const FabrikChain& initial_chain,
-    const Vector3& target_position,
-    const std::vector<Obstacle>& obstacles,
-    const FabrikSolverConfig& config,
-    double spline_thickness,
-    double safety_margin) {
-    
-    // Step 1: Solve FABRIK normally
-    FabrikSolutionResult result = solve_to_target(initial_chain, target_position, config);
-    
-    // Step 2: Apply collision avoidance if obstacles exist
-    if (!obstacles.empty() && !result.spline_points.empty()) {
-        CollisionAvoidanceResult collision_result = SplineCollisionAvoidance::avoid_collisions(
-            result.spline_points, obstacles, spline_thickness, safety_margin);
-        
-        // Store collision avoidance results
-        result.collision_result = collision_result;
-        result.collision_avoidance_applied = collision_result.collision_free;
-        
-        if (collision_result.collision_free) {
-            result.safe_spline_points = collision_result.safe_control_points;
-        } else {
-            // Fallback to original spline if collision avoidance failed
-            result.safe_spline_points = result.spline_points;
-        }
-    } else {
-        // No obstacles - use original spline
-        result.safe_spline_points = result.spline_points;
-        result.collision_avoidance_applied = false;
-    }
-    
-    return result;
-}
-
-CollisionAvoidanceResult FabrikSolver::apply_collision_avoidance_to_result(
-    FabrikSolutionResult& fabrik_result,
-    const std::vector<Obstacle>& obstacles,
-    double spline_thickness,
-    double safety_margin) {
-    
-    CollisionAvoidanceResult collision_result;
-    
-    if (obstacles.empty() || fabrik_result.spline_points.empty()) {
-        // No obstacles or no spline - return success with original points
-        collision_result.safe_control_points = fabrik_result.spline_points;
-        collision_result.collision_free = true;
-        collision_result.execution_time_ms = 0.0;
-        
-        fabrik_result.safe_spline_points = fabrik_result.spline_points;
-        fabrik_result.collision_avoidance_applied = false;
-        
-        return collision_result;
-    }
-    
-    // Apply collision avoidance
-    collision_result = SplineCollisionAvoidance::avoid_collisions(
-        fabrik_result.spline_points, obstacles, spline_thickness, safety_margin);
-    
-    // Update FABRIK result
-    fabrik_result.collision_result = collision_result;
-    fabrik_result.collision_avoidance_applied = collision_result.collision_free;
-    
-    if (collision_result.collision_free) {
-        fabrik_result.safe_spline_points = collision_result.safe_control_points;
-    } else {
-        fabrik_result.safe_spline_points = fabrik_result.spline_points;
-    }
-    
-    return collision_result;
-}
-
-FabrikSolutionResult FabrikSolver::solve_safe(
-    const FabrikChain& initial_chain,
-    const Vector3& target_position,
-    const std::vector<Obstacle>& obstacles,
-    double tolerance,
-    int max_iterations) {
-    
-    FabrikSolverConfig config;
-    config.tolerance = tolerance;
-    config.max_iterations = max_iterations;
-    config.max_backward_forward_cycles = max_iterations;
-    
-    return solve_with_collision_avoidance(initial_chain, target_position, obstacles, config);
-}
-
 FabrikSolverConfig FabrikSolver::create_fast_config() {
     FabrikSolverConfig config;
     config.tolerance = FABRIK_TOLERANCE * 10;  // Loose tolerance (10x default)
@@ -357,12 +217,8 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
             result.forward_iterations = total_forward_iterations;
             result.convergence_history = convergence_history;
             
-            // Extract segment end-effector positions
+            // NEW! Extract segment end-effector positions
             result.segment_end_effectors = extract_segment_end_effectors(current_chain);
-            
-            // Extract spline visualization points
-            result.spline_points = extract_spline_points(current_chain);
-            result.segment_midpoints = calculate_segment_midpoints(current_chain);
             
             return result;
         }
@@ -405,12 +261,8 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
     result.forward_iterations = total_forward_iterations;
     result.convergence_history = convergence_history;
     
-    // Extract segment end-effector positions even if not converged
+    // NEW! Extract segment end-effector positions even if not converged
     result.segment_end_effectors = extract_segment_end_effectors(current_chain);
-    
-    // Extract spline visualization points even if not converged
-    result.spline_points = extract_spline_points(current_chain);
-    result.segment_midpoints = calculate_segment_midpoints(current_chain);
     
     return result;
 }
@@ -441,7 +293,7 @@ void FabrikSolver::update_segment_lengths(FabrikChain& chain, const std::vector<
     }
 }
 
-// Extract segment end-effector positions from solved chain
+// NEW! Extract segment end-effector positions from solved chain
 std::vector<SegmentEndEffectorData> FabrikSolver::extract_segment_end_effectors(const FabrikChain& solved_chain) {
     std::vector<SegmentEndEffectorData> segment_data;
     
@@ -562,10 +414,7 @@ void FabrikSolver::log_iteration(int iteration, const Vector3& end_effector,
     }
 }
 
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
+// Utility functions
 namespace fabrik_utils {
 
 FabrikSolutionResult solve_delta_robot(int num_segments, 
@@ -610,54 +459,6 @@ Vector3 find_max_reach(const FabrikChain& chain, const Vector3& direction) {
 
 bool is_target_reachable(const FabrikChain& chain, const Vector3& target) {
     return FabrikBackward::is_target_reachable(chain, target);
-}
-
-// NEW: Collision-aware utility functions
-
-FabrikSolutionResult solve_delta_robot_safe(
-    int num_segments, 
-    const Vector3& target,
-    const std::vector<Obstacle>& obstacles,
-    double tolerance) {
-    
-    // Initialize chain
-    FabrikInitResult init_result = FabrikInitialization::initialize_straight_up(num_segments);
-    
-    // Solve with collision avoidance
-    return FabrikSolver::solve_with_collision_avoidance(init_result.chain, target, obstacles);
-}
-
-Obstacle create_sphere_obstacle(double x, double y, double z, double radius) {
-    return Obstacle(Vector3(x, y, z), radius);
-}
-
-std::vector<Obstacle> create_obstacles_from_positions(
-    const std::vector<Vector3>& positions,
-    const std::vector<double>& radii) {
-    
-    std::vector<Obstacle> obstacles;
-    
-    size_t count = std::min(positions.size(), radii.size());
-    obstacles.reserve(count);
-    
-    for (size_t i = 0; i < count; i++) {
-        obstacles.emplace_back(positions[i], radii[i]);
-    }
-    
-    return obstacles;
-}
-
-std::vector<Obstacle> create_obstacles_from_coordinates(
-    const std::vector<std::tuple<double, double, double, double>>& obstacle_data) {
-    
-    std::vector<Obstacle> obstacles;
-    obstacles.reserve(obstacle_data.size());
-    
-    for (const auto& [x, y, z, radius] : obstacle_data) {
-        obstacles.emplace_back(Vector3(x, y, z), radius);
-    }
-    
-    return obstacles;
 }
 
 } // namespace fabrik_utils
