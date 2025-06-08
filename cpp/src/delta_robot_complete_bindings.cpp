@@ -13,6 +13,10 @@
 #include "kinematics_module.hpp"
 #include "orientation_module.hpp"
 #include "motor_module.hpp"
+#include "u_points_extractor.hpp"
+#include "collision_detector.hpp"
+
+#include "waypoint_converter.hpp"
 
 using namespace pybind11::literals;
 
@@ -39,6 +43,29 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     pybind11::class_<delta::FabrikChain>(m, "FabrikChain")
         .def_readwrite("joints", &delta::FabrikChain::joints)
         .def_readwrite("segments", &delta::FabrikChain::segments);
+    
+    // =============================================================================
+    // COLLISION STRUCTURES
+    // =============================================================================
+    
+    pybind11::class_<delta::Obstacle>(m, "Obstacle")
+        .def(pybind11::init<const delta::Vector3&, double>())
+        .def_readwrite("center", &delta::Obstacle::center)
+        .def_readwrite("radius", &delta::Obstacle::radius);
+    
+    pybind11::class_<delta::CollisionResult>(m, "CollisionResult")
+        .def_readonly("has_collision", &delta::CollisionResult::has_collision)
+        .def_readonly("waypoints", &delta::CollisionResult::waypoints)
+        .def_readonly("min_distance", &delta::CollisionResult::min_distance)
+        .def_readonly("collision_points", &delta::CollisionResult::collision_points)
+        .def_readonly("computation_time", &delta::CollisionResult::computation_time);
+    
+    pybind11::class_<delta::WaypointConversionResult>(m, "WaypointConversionResult")
+        .def_readonly("joint_positions", &delta::WaypointConversionResult::joint_positions)
+        .def_readonly("segment_lengths", &delta::WaypointConversionResult::segment_lengths)
+        .def_readonly("joint_angles_deg", &delta::WaypointConversionResult::joint_angles_deg)
+        .def_readonly("total_reach", &delta::WaypointConversionResult::total_reach)
+        .def_readonly("conversion_successful", &delta::WaypointConversionResult::conversion_successful);
     
     // =============================================================================
     // RESULT TYPES (Simple, no helpers)
@@ -122,6 +149,23 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("solve", &delta::FabrikSolver::solve);
     
     // =============================================================================
+    // COLLISION MODULES
+    // =============================================================================
+    
+    pybind11::class_<delta::UPointsExtractor>(m, "UPointsExtractor")
+        .def_static("extract_u_points", &delta::UPointsExtractor::extract_u_points)
+        .def_static("extract_u_points_from_positions", &delta::UPointsExtractor::extract_u_points_from_positions);
+    
+    pybind11::class_<delta::CollisionDetector>(m, "CollisionDetector")
+        .def_static("check_and_avoid", &delta::CollisionDetector::check_and_avoid)
+        .def_static("create_test_obstacles", &delta::CollisionDetector::create_test_obstacles);
+    
+    pybind11::class_<delta::WaypointConverter>(m, "WaypointConverter")
+        .def_static("convert_waypoints_to_joints", &delta::WaypointConverter::convert_waypoints_to_joints)
+        .def_static("create_fabrik_chain_from_waypoints", &delta::WaypointConverter::create_fabrik_chain_from_waypoints)
+        .def_static("validate_waypoints", &delta::WaypointConverter::validate_waypoints);
+    
+    // =============================================================================
     // MOTOR MODULE
     // =============================================================================
     
@@ -146,4 +190,5 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     
     m.attr("FABRIK_TOLERANCE") = delta::FABRIK_TOLERANCE;
     m.attr("DEFAULT_ROBOT_SEGMENTS") = delta::DEFAULT_ROBOT_SEGMENTS;
+    m.attr("DEFAULT_SPLINE_DIAMETER") = delta::DEFAULT_SPLINE_DIAMETER;
 }
