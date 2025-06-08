@@ -25,9 +25,9 @@ constexpr double SPLINE_THICKNESS = 48.0;                             // Robot t
 constexpr double COLLISION_SAFETY_MARGIN = 10.0;                      // Extra clearance beyond obstacle radius (mm)
 
 // Collision Avoidance Performance Constants
-constexpr double COLLISION_AVOIDANCE_TARGET_TIME_MS = 0.3;             // Target execution time
+constexpr double COLLISION_AVOIDANCE_TARGET_TIME_MS = 1.3;             // Target execution time
 constexpr int COLLISION_MAX_SOLUTION_CANDIDATES = 7;                   // Maximum bending alternatives to try
-constexpr double COLLISION_INFLUENCE_RADIUS = 50.0;                    // Gaussian falloff distance for bending
+constexpr double COLLISION_INFLUENCE_RADIUS = 300.0;                    // Gaussian falloff distance for bending
 constexpr double COLLISION_GAUSSIAN_FALLOFF = 3.0;                     // Gaussian falloff sharpness
 
 // Constraint Preservation Weights

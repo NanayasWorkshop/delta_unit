@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Collision Avoidance Test and Visualization
+Collision Avoidance Test and Visualization (FIXED)
 Interactive 3D visualization showing FABRIK solving with collision avoidance
 """
 import sys
@@ -265,13 +265,13 @@ def visualize_collision_avoidance(original_result, safe_result, obstacle_objects
             hovertemplate='Control Point %{pointNumber}<br>Position: (%{x:.2f}, %{y:.2f}, %{z:.2f})<extra></extra>'
         ))
     
-    # 7. Target position
+    # 7. Target position - FIXED: Use 'diamond' instead of 'star' (which is not supported in 3D)
     fig.add_trace(go.Scatter3d(
         x=[target[0]],
         y=[target[1]],
         z=[target[2]],
         mode='markers',
-        marker=dict(size=8, color='gold', symbol='star'),
+        marker=dict(size=12, color='gold', symbol='diamond'),  # FIXED: changed 'star' to 'diamond'
         name='Target Position',
         hovertemplate='Target<br>Position: (%{x:.2f}, %{y:.2f}, %{z:.2f})<extra></extra>'
     ))
@@ -282,7 +282,7 @@ def visualize_collision_avoidance(original_result, safe_result, obstacle_objects
         y=[0], 
         z=[0],
         mode='markers',
-        marker=dict(size=6, color='black', symbol='square'),
+        marker=dict(size=8, color='black', symbol='square'),
         name='Base (Origin)',
         hovertemplate='Base<br>Position: (0.00, 0.00, 0.00)<extra></extra>'
     ))
@@ -341,7 +341,7 @@ def run_collision_avoidance_tests():
         {
             "name": "Simple Single Obstacle",
             "target": (100, 50, 300),
-            "obstacles": [(50, 25, 200, 40)],  # (x, y, z, radius)
+            "obstacles": [(50, 25, 500, 40)],  # (x, y, z, radius)
             "description": "Single obstacle in the path"
         },
         {
@@ -352,7 +352,7 @@ def run_collision_avoidance_tests():
         },
         {
             "name": "Narrow Passage",
-            "target": (0, 0, 400),
+            "target": (1, 1, 400),
             "obstacles": [(-30, 0, 200, 25), (30, 0, 200, 25)],
             "description": "Narrow passage between two obstacles"
         },
