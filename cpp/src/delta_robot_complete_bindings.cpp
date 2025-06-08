@@ -1,4 +1,4 @@
-// consolidated_bindings.cpp - ALL modules in one file (SIMPLE VERSION)
+// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
@@ -15,13 +15,13 @@
 #include "motor_module.hpp"
 #include "u_points_extractor.hpp"
 #include "collision_detector.hpp"
-
 #include "waypoint_converter.hpp"
+#include "collision_aware_solver.hpp"  // NEW: Main collision orchestrator
 
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_robot_complete, m) {
-    m.doc() = "Complete Delta Robot Module - All functionality in one place";
+    m.doc() = "Complete Delta Robot Module - All functionality including collision-aware solving";
     
     // =============================================================================
     // TYPES & ENUMS
@@ -66,6 +66,22 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("joint_angles_deg", &delta::WaypointConversionResult::joint_angles_deg)
         .def_readonly("total_reach", &delta::WaypointConversionResult::total_reach)
         .def_readonly("conversion_successful", &delta::WaypointConversionResult::conversion_successful);
+    
+    // NEW: Collision-aware solver structures
+    pybind11::class_<delta::CollisionAwareSolutionResult>(m, "CollisionAwareSolutionResult")
+        .def_readonly("fabrik_result", &delta::CollisionAwareSolutionResult::fabrik_result)
+        .def_readonly("collision_free", &delta::CollisionAwareSolutionResult::collision_free)
+        .def_readonly("collision_iterations", &delta::CollisionAwareSolutionResult::collision_iterations)
+        .def_readonly("total_collision_time_ms", &delta::CollisionAwareSolutionResult::total_collision_time_ms)
+        .def_readonly("collision_history", &delta::CollisionAwareSolutionResult::collision_history)
+        .def_readonly("conversion_successful", &delta::CollisionAwareSolutionResult::conversion_successful);
+    
+    pybind11::class_<delta::CollisionAwareConfig>(m, "CollisionAwareConfig")
+        .def(pybind11::init<>())
+        .def_readwrite("max_collision_iterations", &delta::CollisionAwareConfig::max_collision_iterations)
+        .def_readwrite("spline_diameter", &delta::CollisionAwareConfig::spline_diameter)
+        .def_readwrite("enable_collision_detection", &delta::CollisionAwareConfig::enable_collision_detection)
+        .def_readwrite("verbose_logging", &delta::CollisionAwareConfig::verbose_logging);
     
     // =============================================================================
     // RESULT TYPES (Simple, no helpers)
@@ -149,7 +165,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("solve", &delta::FabrikSolver::solve);
     
     // =============================================================================
-    // COLLISION MODULES
+    // COLLISION MODULES (Complete Pipeline)
     // =============================================================================
     
     pybind11::class_<delta::UPointsExtractor>(m, "UPointsExtractor")
@@ -164,6 +180,26 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("convert_waypoints_to_joints", &delta::WaypointConverter::convert_waypoints_to_joints)
         .def_static("create_fabrik_chain_from_waypoints", &delta::WaypointConverter::create_fabrik_chain_from_waypoints)
         .def_static("validate_waypoints", &delta::WaypointConverter::validate_waypoints);
+    
+    // NEW: Complete collision-aware solver
+    pybind11::class_<delta::CollisionAwareSolver>(m, "CollisionAwareSolver")
+        .def_static("solve_with_collision_avoidance", 
+                   pybind11::overload_cast<const delta::Vector3&, const std::vector<delta::Obstacle>&, const delta::CollisionAwareConfig&>
+                   (&delta::CollisionAwareSolver::solve_with_collision_avoidance),
+                   "Solve with collision avoidance using default initialization",
+                   "target_position"_a, "obstacles"_a, "config"_a = delta::CollisionAwareConfig())
+        .def_static("solve_with_collision_avoidance", 
+                   pybind11::overload_cast<const delta::Vector3&, const std::vector<delta::Obstacle>&, 
+                                          const std::vector<delta::Vector3>&, int, const delta::CollisionAwareConfig&>
+                   (&delta::CollisionAwareSolver::solve_with_collision_avoidance),
+                   "Solve with collision avoidance using provided initial joint positions",
+                   "target_position"_a, "obstacles"_a, "initial_joint_positions"_a, "num_robot_segments"_a, "config"_a = delta::CollisionAwareConfig())
+        .def_static("solve", &delta::CollisionAwareSolver::solve,
+                   "Simple interface for collision-aware solving",
+                   "target_position"_a, "obstacles"_a, "max_iterations"_a = 3)
+        .def_static("has_collision", &delta::CollisionAwareSolver::has_collision,
+                   "Check if a FABRIK chain has collisions with obstacles",
+                   "chain"_a, "obstacles"_a, "spline_diameter"_a = delta::DEFAULT_SPLINE_DIAMETER);
     
     // =============================================================================
     // MOTOR MODULE
@@ -183,6 +219,12 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     m.def("calculate_motors", [](double x, double y, double z) {
         return delta::MotorModule::calculate_motors(x, y, z);
     });
+    
+    // NEW: Collision-aware convenience functions
+    m.def("solve_with_collision_avoidance", [](double x, double y, double z, const std::vector<delta::Obstacle>& obstacles) {
+        delta::Vector3 target(x, y, z);
+        return delta::CollisionAwareSolver::solve_with_collision_avoidance(target, obstacles);
+    }, "Convenience function for collision-aware solving with target coordinates");
     
     // =============================================================================
     // CONSTANTS

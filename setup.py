@@ -34,7 +34,7 @@ eigen_flags = [
 ]
 
 ext_modules = [
-    # CONSOLIDATED MODULE with U Points Extractor
+    # CONSOLIDATED MODULE with Complete Collision Detection Pipeline
     Pybind11Extension(
         "delta_robot.delta_robot_complete",
         [
@@ -60,10 +60,11 @@ ext_modules = [
             # Motor implementation
             "cpp/motor/motor_module.cpp",
             
-            # Collision detection implementation
+            # Complete collision detection pipeline implementation
             "cpp/collision/u_points_extractor.cpp",
             "cpp/collision/collision_detector.cpp",
             "cpp/collision/waypoint_converter.cpp",
+            "cpp/collision/collision_aware_solver.cpp",  # NEW: Main orchestrator
         ],
         include_dirs=[
             "cpp/include", 
@@ -82,8 +83,8 @@ ext_modules = [
 
 setup(
     name="delta_unit",
-    version="1.1.0",
-    description="Delta Robot Kinematics and Control with U Points",
+    version="1.2.0",  # Updated version for collision-aware solver
+    description="Delta Robot Kinematics and Control with Complete Collision Detection Pipeline",
     author="Delta Robot Team",
     packages=find_packages(),
     ext_modules=ext_modules,
