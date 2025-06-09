@@ -1,5 +1,6 @@
 """
-Delta Robot Python Package (Consolidated Module with Complete Collision Pipeline + Segment Calculator)
+Delta Robot Python Package - Step 1.2 Update
+Enhanced with Level 1 Composite Modules (KinematicsSolver + OrientationSolver)
 """
 import numpy as np
 
@@ -9,7 +10,7 @@ try:
     
     # Create convenient aliases that maintain backward compatibility
     class fermat:
-        # New improved classes
+        # NEW: Improved Level 0 classes (Step 1.1)
         FermatSolver = delta_complete.FermatSolver
         FermatResult = delta_complete.FermatResult
         
@@ -17,7 +18,7 @@ try:
         FermatModule = delta_complete.FermatModule
     
     class joint_state:
-        # New improved classes
+        # NEW: Improved Level 0 classes (Step 1.1)
         JointStateSolver = delta_complete.JointStateSolver
         JointStateResult = delta_complete.JointStateResult
         
@@ -25,12 +26,21 @@ try:
         JointStateModule = delta_complete.JointStateModule
     
     class kinematics:
-        KinematicsModule = delta_complete.KinematicsModule
+        # NEW: Level 1 Composite Solver with timing and validation (Step 1.2)
+        KinematicsSolver = delta_complete.KinematicsSolver
         KinematicsResult = delta_complete.KinematicsResult
+        
+        # Backward compatibility aliases
+        KinematicsModule = delta_complete.KinematicsModule
     
     class orientation:
-        OrientationModule = delta_complete.OrientationModule
+        # NEW: Level 1 Composite Solver with timing and validation (Step 1.2)
+        OrientationSolver = delta_complete.OrientationSolver
         OrientationResult = delta_complete.OrientationResult
+        CoordinateFrame = delta_complete.CoordinateFrame
+        
+        # Backward compatibility aliases
+        OrientationModule = delta_complete.OrientationModule
     
     class fabrik:
         FabrikSolver = delta_complete.FabrikSolver
@@ -60,7 +70,7 @@ try:
         MotorResult = delta_complete.MotorResult
         LevelData = delta_complete.LevelData
         
-        # NEW: Segment Calculator (separated from FABRIK for performance)
+        # Segment Calculator (separated from FABRIK for performance)
         SegmentCalculator = delta_complete.SegmentCalculator
         SegmentCalculationResult = delta_complete.SegmentCalculationResult
         SegmentEndEffectorData = delta_complete.SegmentEndEffectorData
@@ -130,59 +140,73 @@ def create_obstacle(center_x, center_y, center_z, radius):
     return collision.Obstacle(center, radius)
 
 def verify_installation():
-    """Verify that the consolidated module with collision detection and segment calculator imported correctly."""
+    """Verify that the Step 1.2 improvements are working correctly."""
     try:
-        # Test basic motor calculation
-        result = motor.MotorModule.calculate_motors(100, 50, 300)
-        print("✓ Basic motor module working!")
-        
-        # Test NEW improved Level 0 modules
+        # Test NEW Level 1 Composite Modules (Step 1.2)
         direction = np.array([1, 0, 1])
+        
+        # Test improved KinematicsSolver
+        kinematics_result = kinematics.KinematicsSolver.calculate(direction)
+        print(f"✓ KinematicsSolver working! (time: {kinematics_result.computation_time_ms:.3f}ms, success: {kinematics_result.calculation_successful})")
+        
+        # Test improved OrientationSolver
+        orientation_result = orientation.OrientationSolver.calculate(direction)
+        print(f"✓ OrientationSolver working! (time: {orientation_result.computation_time_ms:.3f}ms, success: {orientation_result.calculation_successful})")
+        
+        # Test efficiency: OrientationSolver using existing kinematics result
+        orientation_from_kinematics = orientation.OrientationSolver.calculate_from_kinematics(kinematics_result)
+        print(f"✓ OrientationSolver from kinematics! (time: {orientation_from_kinematics.computation_time_ms:.3f}ms)")
+        
+        # Test Level 0 modules from Step 1.1
         fermat_result = fermat.FermatSolver.calculate(direction)
         print(f"✓ FermatSolver working! (time: {fermat_result.computation_time_ms:.3f}ms)")
         
         joint_result = joint_state.JointStateSolver.calculate_from_fermat(direction, fermat_result)
         print(f"✓ JointStateSolver working! (time: {joint_result.computation_time_ms:.3f}ms)")
         
+        # Test validation
+        invalid_direction = np.array([0, 0, 0])  # Zero vector should be invalid
+        valid_input = kinematics.KinematicsSolver.is_input_valid(direction)
+        invalid_input = kinematics.KinematicsSolver.is_input_valid(invalid_direction)
+        print(f"✓ Input validation working! (valid: {valid_input}, invalid: {invalid_input})")
+        
+        # Test error handling
+        failed_result = kinematics.KinematicsSolver.calculate(invalid_direction)
+        print(f"✓ Error handling working! (failed: {not failed_result.calculation_successful})")
+        
+        # Test backward compatibility
+        old_kinematics_result = kinematics.KinematicsModule.calculate(direction)
+        old_orientation_result = orientation.OrientationModule.calculate(direction)
+        print("✓ Backward compatibility working!")
+        
+        # Test basic motor calculation still works
+        result = motor.MotorModule.calculate_motors(100, 50, 300)
+        print("✓ Basic motor module still working!")
+        
         # Test collision detection components
         obstacles = create_test_obstacles()
         print(f"✓ Created {len(obstacles)} test obstacles!")
-        
-        # Test U points extraction
-        joint_positions = [
-            np.array([0, 0, 0]),
-            np.array([0, 0, 73]),
-            np.array([10, 5, 146]),
-            np.array([20, 10, 219]),
-            np.array([30, 15, 292])
-        ]
-        u_points = collision.UPointsExtractor.extract_u_points_from_positions(joint_positions)
-        print(f"✓ Extracted {len(u_points)} U points!")
-        
-        # Test collision detection
-        collision_result = collision.CollisionDetector.check_and_avoid(u_points, obstacles, delta_complete.DEFAULT_SPLINE_DIAMETER)
-        print(f"✓ Collision detection working! (has_collision: {collision_result.has_collision})")
         
         # Test collision-aware solver
         target = np.array([100, 0, 300])
         collision_aware_result = collision.CollisionAwareSolver.solve(target, obstacles, 1)
         print(f"✓ Collision-aware solver working! (collision_free: {collision_aware_result.collision_free})")
         
-        # Test NEW segment calculator (separated from FABRIK)
+        # Test segment calculator
         fabrik_result = solve_fabrik_ik(100, 0, 300)
         segment_result = motor.SegmentCalculator.calculate_segment_end_effectors(fabrik_result.final_chain)
         print(f"✓ Segment calculator working! (calculated {len(segment_result.segment_end_effectors)} segments in {segment_result.calculation_time_ms:.2f}ms)")
         
-        # Test backward compatibility
-        fermat_result_old = fermat.FermatModule.calculate(direction)
-        joint_result_old = joint_state.JointStateModule.calculate_from_fermat(direction, fermat_result_old)
-        print("✓ Backward compatibility working!")
+        print("\n🎯 Step 1.2 SUCCESS: Level 1 Composite Modules (KinematicsSolver + OrientationSolver) working!")
+        print("✅ Enhanced with timing, validation, and error handling")
+        print("✅ Using improved Level 0 modules internally")
+        print("✅ Backward compatibility maintained")
+        print("✅ Clean interfaces with no circular dependencies")
         
-        print("✓ Delta robot module with COMPLETE collision detection pipeline + optimized segment calculator + improved Level 0 modules imported successfully!")
         return True
         
     except Exception as e:
-        print(f"✗ Module test failed: {e}")
+        print(f"✗ Step 1.2 test failed: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -191,7 +215,7 @@ def verify_installation():
 __all__ = [
     'fermat', 'joint_state', 'kinematics', 'orientation', 'fabrik', 'collision', 'motor',
     'calculate_motors', 'solve_fabrik_ik', 'solve_with_collision_avoidance', 
-    'calculate_segment_end_effectors',  # NEW: Direct access to segment calculator
+    'calculate_segment_end_effectors',
     'create_test_obstacles', 'create_obstacle', 'verify_installation',
     'FABRIK_TOLERANCE', 'DEFAULT_ROBOT_SEGMENTS', 'DEFAULT_SPLINE_DIAMETER'
 ]

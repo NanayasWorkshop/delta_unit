@@ -1,4 +1,4 @@
-// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE + SEGMENT CALCULATOR
+// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE + SEGMENT CALCULATOR + STEP 1.2 IMPROVEMENTS
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
@@ -10,10 +10,10 @@
 #include "fabrik_solver.hpp"
 #include "fermat_module.hpp"
 #include "joint_state.hpp"
-#include "kinematics_module.hpp"
-#include "orientation_module.hpp"
+#include "kinematics_module.hpp"      // CORRECTED: Use existing header name
+#include "orientation_module.hpp"     // CORRECTED: Use existing header name
 #include "motor_module.hpp"
-#include "segment_calculator.hpp"  // NEW: Separated segment calculator
+#include "segment_calculator.hpp"
 #include "u_points_extractor.hpp"
 #include "collision_detector.hpp"
 #include "waypoint_converter.hpp"
@@ -22,7 +22,7 @@
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_robot_complete, m) {
-    m.doc() = "Complete Delta Robot Module - All functionality including collision-aware solving + optimized segment calculator";
+    m.doc() = "Complete Delta Robot Module - Step 1.2: Level 1 Composite Modules with Timing and Validation";
     
     // =============================================================================
     // TYPES & ENUMS
@@ -47,7 +47,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readwrite("num_robot_segments", &delta::FabrikChain::num_robot_segments);
     
     // =============================================================================
-    // SEGMENT CALCULATOR STRUCTURES (NEW)
+    // SEGMENT CALCULATOR STRUCTURES
     // =============================================================================
     
     pybind11::class_<delta::SegmentEndEffectorData>(m, "SegmentEndEffectorData")
@@ -103,32 +103,75 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readwrite("verbose_logging", &delta::CollisionAwareConfig::verbose_logging);
     
     // =============================================================================
-    // RESULT TYPES (Updated with timing and validation)
+    // COORDINATE FRAME STRUCTURE (NEW - Step 1.2)
     // =============================================================================
     
+    pybind11::class_<delta::CoordinateFrame>(m, "CoordinateFrame")
+        .def_readonly("origin", &delta::CoordinateFrame::origin)
+        .def_readonly("u_axis", &delta::CoordinateFrame::u_axis)
+        .def_readonly("v_axis", &delta::CoordinateFrame::v_axis)
+        .def_readonly("w_axis", &delta::CoordinateFrame::w_axis);
+    
+    // =============================================================================
+    // RESULT TYPES (Updated with Step 1.2 improvements)
+    // =============================================================================
+    
+    // Level 0 Results (Step 1.1 - Enhanced with timing and validation)
     pybind11::class_<delta::FermatResult>(m, "FermatResult")
         .def_readonly("z_A", &delta::FermatResult::z_A)
         .def_readonly("z_B", &delta::FermatResult::z_B)
         .def_readonly("z_C", &delta::FermatResult::z_C)
         .def_readonly("fermat_point", &delta::FermatResult::fermat_point)
         .def_readonly("computation_time_ms", &delta::FermatResult::computation_time_ms)
-        .def_readonly("calculation_successful", &delta::FermatResult::calculation_successful);
-    
-    pybind11::class_<delta::KinematicsResult>(m, "KinematicsResult")
-        .def_readonly("end_effector_position", &delta::KinematicsResult::end_effector_position)
-        .def_readonly("prismatic_joint_length", &delta::KinematicsResult::prismatic_joint_length);
+        .def_readonly("calculation_successful", &delta::FermatResult::calculation_successful)
+        .def_static("failed", &delta::FermatResult::failed,
+                   "Create failed result for error handling", "time_ms"_a = 0.0);
     
     pybind11::class_<delta::JointStateResult>(m, "JointStateResult")
         .def_readonly("prismatic_joint", &delta::JointStateResult::prismatic_joint)
         .def_readonly("roll_joint", &delta::JointStateResult::roll_joint)
         .def_readonly("pitch_joint", &delta::JointStateResult::pitch_joint)
+        .def_readonly("direction_vector", &delta::JointStateResult::direction_vector)
+        .def_readonly("fermat_point", &delta::JointStateResult::fermat_point)
+        .def_readonly("z_A", &delta::JointStateResult::z_A)
+        .def_readonly("z_B", &delta::JointStateResult::z_B)
+        .def_readonly("z_C", &delta::JointStateResult::z_C)
         .def_readonly("computation_time_ms", &delta::JointStateResult::computation_time_ms)
-        .def_readonly("calculation_successful", &delta::JointStateResult::calculation_successful);
+        .def_readonly("calculation_successful", &delta::JointStateResult::calculation_successful)
+        .def_static("failed", &delta::JointStateResult::failed,
+                   "Create failed result for error handling", 
+                   "direction"_a = delta::Vector3(0,0,0), "time_ms"_a = 0.0);
+    
+    // Level 1 Results (Step 1.2 - Enhanced with timing and validation)
+    pybind11::class_<delta::KinematicsResult>(m, "KinematicsResult")
+        .def_readonly("end_effector_position", &delta::KinematicsResult::end_effector_position)
+        .def_readonly("prismatic_joint_length", &delta::KinematicsResult::prismatic_joint_length)
+        .def_readonly("transformed_vector", &delta::KinematicsResult::transformed_vector)
+        .def_readonly("original_input", &delta::KinematicsResult::original_input)
+        .def_readonly("input_angle_from_z", &delta::KinematicsResult::input_angle_from_z)
+        .def_readonly("fermat_data", &delta::KinematicsResult::fermat_data)
+        .def_readonly("joint_state_data", &delta::KinematicsResult::joint_state_data)
+        .def_readonly("computation_time_ms", &delta::KinematicsResult::computation_time_ms)
+        .def_readonly("calculation_successful", &delta::KinematicsResult::calculation_successful)
+        .def_static("failed", &delta::KinematicsResult::failed,
+                   "Create failed result for error handling",
+                   "input"_a = delta::Vector3(0,0,0), "time_ms"_a = 0.0);
     
     pybind11::class_<delta::OrientationResult>(m, "OrientationResult")
         .def_readonly("transformation_matrix", &delta::OrientationResult::transformation_matrix)
-        .def_readonly("end_effector_position", &delta::OrientationResult::end_effector_position);
+        .def_readonly("fermat_point", &delta::OrientationResult::fermat_point)
+        .def_readonly("end_effector_position", &delta::OrientationResult::end_effector_position)
+        .def_readonly("UVW_at_fermat", &delta::OrientationResult::UVW_at_fermat)
+        .def_readonly("IJK_mirrored", &delta::OrientationResult::IJK_mirrored)
+        .def_readonly("UVW_prime_aligned", &delta::OrientationResult::UVW_prime_aligned)
+        .def_readonly("final_frame", &delta::OrientationResult::final_frame)
+        .def_readonly("computation_time_ms", &delta::OrientationResult::computation_time_ms)
+        .def_readonly("calculation_successful", &delta::OrientationResult::calculation_successful)
+        .def_static("failed", &delta::OrientationResult::failed,
+                   "Create failed result for error handling",
+                   "input"_a = delta::Vector3(0,0,0), "time_ms"_a = 0.0);
     
+    // Other result types
     pybind11::class_<delta::FabrikSolutionResult>(m, "FabrikSolutionResult")
         .def_readonly("final_chain", &delta::FabrikSolutionResult::final_chain)
         .def_readonly("converged", &delta::FabrikSolutionResult::converged)
@@ -144,7 +187,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("original_segment_positions", &delta::MotorResult::original_segment_positions)
         .def_readonly("fabrik_joint_positions", &delta::MotorResult::fabrik_joint_positions)
         .def_readonly("levels", &delta::MotorResult::levels)
-        .def_readonly("segment_calculation_time_ms", &delta::MotorResult::segment_calculation_time_ms);  // NEW
+        .def_readonly("segment_calculation_time_ms", &delta::MotorResult::segment_calculation_time_ms);
     
     pybind11::class_<delta::LevelData>(m, "LevelData")
         .def_readonly("z_A", &delta::LevelData::z_A)
@@ -158,44 +201,90 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("transformed_segment_positions", &delta::LevelData::transformed_segment_positions);
     
     // =============================================================================
-    // KINEMATICS MODULES (Updated with new solver names)
+    // LEVEL 0 MODULES (Step 1.1 - Enhanced with timing and validation)
     // =============================================================================
     
-    // Main classes with all functionality
     pybind11::class_<delta::FermatSolver>(m, "FermatSolver")
         .def_static("calculate", 
-                   pybind11::overload_cast<double, double, double>(&delta::FermatSolver::calculate))
+                   pybind11::overload_cast<double, double, double>(&delta::FermatSolver::calculate),
+                   "Calculate Fermat point from coordinates with timing and validation",
+                   "x"_a, "y"_a, "z"_a)
         .def_static("calculate", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::FermatSolver::calculate))
-        .def_static("is_direction_valid", &delta::FermatSolver::is_direction_valid);
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::FermatSolver::calculate),
+                   "Calculate Fermat point from direction vector with timing and validation",
+                   "direction"_a)
+        .def_static("is_direction_valid", &delta::FermatSolver::is_direction_valid,
+                   "Validate direction vector", "direction"_a)
+        .def_static("get_base_A", &delta::FermatSolver::get_base_A)
+        .def_static("get_base_B", &delta::FermatSolver::get_base_B)
+        .def_static("get_base_C", &delta::FermatSolver::get_base_C);
     
     pybind11::class_<delta::JointStateSolver>(m, "JointStateSolver")
-        .def_static("calculate", &delta::JointStateSolver::calculate)
-        .def_static("calculate_from_fermat", &delta::JointStateSolver::calculate_from_fermat)
-        .def_static("is_input_valid", &delta::JointStateSolver::is_input_valid);
+        .def_static("calculate", &delta::JointStateSolver::calculate,
+                   "Calculate joint states from components with timing and validation",
+                   "direction_vector"_a, "fermat_point"_a, "z_A"_a, "z_B"_a, "z_C"_a)
+        .def_static("calculate_from_fermat", &delta::JointStateSolver::calculate_from_fermat,
+                   "Calculate joint states from Fermat result with timing and validation",
+                   "direction_vector"_a, "fermat_result"_a)
+        .def_static("is_input_valid", &delta::JointStateSolver::is_input_valid,
+                   "Validate input parameters", "direction_vector"_a, "fermat_point"_a);
     
-    // Backward compatibility aliases - same functionality, different names
-    m.attr("FermatModule") = m.attr("FermatSolver");
-    m.attr("JointStateModule") = m.attr("JointStateSolver");
+    // =============================================================================
+    // LEVEL 1 COMPOSITE MODULES (UPDATED - Step 1.2)
+    // =============================================================================
     
     pybind11::class_<delta::KinematicsModule>(m, "KinematicsModule")
         .def_static("calculate", 
-                   pybind11::overload_cast<double, double, double>(&delta::KinematicsModule::calculate))
+                   pybind11::overload_cast<double, double, double>(&delta::KinematicsModule::calculate),
+                   "Calculate kinematics from coordinates with timing and validation",
+                   "x"_a, "y"_a, "z"_a)
         .def_static("calculate", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::KinematicsModule::calculate));
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::KinematicsModule::calculate),
+                   "Calculate kinematics from direction vector with timing and validation", 
+                   "input_vector"_a)
+        .def_static("is_input_valid", &delta::KinematicsModule::is_input_valid,
+                   "Validate input direction vector", "input_vector"_a)
+        .def_static("set_use_half_angle_transform", &delta::KinematicsModule::set_use_half_angle_transform,
+                   "Configure half-angle transformation (future feature)", "enable"_a)
+        .def_static("get_use_half_angle_transform", &delta::KinematicsModule::get_use_half_angle_transform,
+                   "Get half-angle transformation setting");
     
     pybind11::class_<delta::OrientationModule>(m, "OrientationModule")
         .def_static("calculate", 
-                   pybind11::overload_cast<double, double, double>(&delta::OrientationModule::calculate))
+                   pybind11::overload_cast<double, double, double>(&delta::OrientationModule::calculate),
+                   "Calculate orientation from coordinates with timing and validation",
+                   "x"_a, "y"_a, "z"_a)
         .def_static("calculate", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::OrientationModule::calculate));
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::OrientationModule::calculate),
+                   "Calculate orientation from direction vector with timing and validation",
+                   "input_vector"_a)
+        .def_static("calculate_from_kinematics", &delta::OrientationModule::calculate_from_kinematics,
+                   "Calculate orientation from existing kinematics result (more efficient)",
+                   "kinematics_result"_a)
+        .def_static("is_input_valid", &delta::OrientationModule::is_input_valid,
+                   "Validate input direction vector", "input_vector"_a);
+    
+    // =============================================================================
+    // BACKWARD COMPATIBILITY ALIASES (Step 1.2)
+    // =============================================================================
+    
+    // Step 1.1 backward compatibility
+    m.attr("FermatModule") = m.attr("FermatSolver");
+    m.attr("JointStateModule") = m.attr("JointStateSolver");
+    
+    // Step 1.2 backward compatibility - aliases to same classes
+    m.attr("KinematicsSolver") = m.attr("KinematicsModule");
+    m.attr("OrientationSolver") = m.attr("OrientationModule");
     
     // =============================================================================
     // FABRIK MODULES
     // =============================================================================
     
     pybind11::class_<delta::FabrikInitialization>(m, "FabrikInitialization")
-        .def_static("initialize_straight_up", &delta::FabrikInitialization::initialize_straight_up);
+        .def_static("initialize_straight_up", &delta::FabrikInitialization::initialize_straight_up,
+                   "Initialize FABRIK chain in straight-up configuration", "num_robot_segments"_a = delta::DEFAULT_ROBOT_SEGMENTS)
+        .def_static("initialize_from_joint_positions", &delta::FabrikInitialization::initialize_from_joint_positions,
+                   "Initialize FABRIK chain from joint positions", "num_robot_segments"_a, "joint_positions"_a);
     
     pybind11::class_<delta::FabrikSolver>(m, "FabrikSolver")
         .def_static("solve", &delta::FabrikSolver::solve,
@@ -205,7 +294,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS);
     
     // =============================================================================
-    // SEGMENT CALCULATOR (NEW - Separated from FABRIK for Performance)
+    // SEGMENT CALCULATOR (Separated for performance)
     // =============================================================================
     
     pybind11::class_<delta::SegmentCalculator>(m, "SegmentCalculator")
@@ -229,17 +318,25 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     // =============================================================================
     
     pybind11::class_<delta::UPointsExtractor>(m, "UPointsExtractor")
-        .def_static("extract_u_points", &delta::UPointsExtractor::extract_u_points)
-        .def_static("extract_u_points_from_positions", &delta::UPointsExtractor::extract_u_points_from_positions);
+        .def_static("extract_u_points", &delta::UPointsExtractor::extract_u_points,
+                   "Extract U points from FABRIK chain", "solved_chain"_a)
+        .def_static("extract_u_points_from_positions", &delta::UPointsExtractor::extract_u_points_from_positions,
+                   "Extract U points from joint positions", "joint_positions"_a);
     
     pybind11::class_<delta::CollisionDetector>(m, "CollisionDetector")
-        .def_static("check_and_avoid", &delta::CollisionDetector::check_and_avoid)
-        .def_static("create_test_obstacles", &delta::CollisionDetector::create_test_obstacles);
+        .def_static("check_and_avoid", &delta::CollisionDetector::check_and_avoid,
+                   "Check collision and get avoidance waypoints",
+                   "u_points"_a, "obstacles"_a, "spline_diameter"_a = delta::DEFAULT_SPLINE_DIAMETER)
+        .def_static("create_test_obstacles", &delta::CollisionDetector::create_test_obstacles,
+                   "Create test obstacles for collision detection");
     
     pybind11::class_<delta::WaypointConverter>(m, "WaypointConverter")
-        .def_static("convert_waypoints_to_joints", &delta::WaypointConverter::convert_waypoints_to_joints)
-        .def_static("create_fabrik_chain_from_waypoints", &delta::WaypointConverter::create_fabrik_chain_from_waypoints)
-        .def_static("validate_waypoints", &delta::WaypointConverter::validate_waypoints);
+        .def_static("convert_waypoints_to_joints", &delta::WaypointConverter::convert_waypoints_to_joints,
+                   "Convert collision-free waypoints to joint positions", "waypoints"_a)
+        .def_static("create_fabrik_chain_from_waypoints", &delta::WaypointConverter::create_fabrik_chain_from_waypoints,
+                   "Create FABRIK chain from waypoints", "waypoints"_a, "num_robot_segments"_a)
+        .def_static("validate_waypoints", &delta::WaypointConverter::validate_waypoints,
+                   "Validate waypoints for conversion", "waypoints"_a);
     
     // Complete collision-aware solver
     pybind11::class_<delta::CollisionAwareSolver>(m, "CollisionAwareSolver")
@@ -267,33 +364,42 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     
     pybind11::class_<delta::MotorModule>(m, "MotorModule")
         .def_static("calculate_motors", 
-                   pybind11::overload_cast<double, double, double>(&delta::MotorModule::calculate_motors))
+                   pybind11::overload_cast<double, double, double>(&delta::MotorModule::calculate_motors),
+                   "Calculate motor positions from target coordinates", "target_x"_a, "target_y"_a, "target_z"_a)
         .def_static("calculate_motors", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::MotorModule::calculate_motors))
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::MotorModule::calculate_motors),
+                   "Calculate motor positions from target vector", "target_position"_a)
         .def_static("calculate_motors", 
-                   pybind11::overload_cast<double, double, double, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors))
+                   pybind11::overload_cast<double, double, double, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors),
+                   "Calculate motor positions with optional initial joint positions",
+                   "target_x"_a, "target_y"_a, "target_z"_a, "current_joint_positions"_a)
         .def_static("calculate_motors", 
-                   pybind11::overload_cast<const delta::Vector3&, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors));
+                   pybind11::overload_cast<const delta::Vector3&, const std::optional<std::vector<delta::Vector3>>&>(&delta::MotorModule::calculate_motors),
+                   "Calculate motor positions with optional initial joint positions",
+                   "target_position"_a, "current_joint_positions"_a);
     
     // =============================================================================
     // CONVENIENCE FUNCTIONS
     // =============================================================================
     
-    m.def("solve_delta_robot", &delta::fabrik_utils::solve_delta_robot);
+    m.def("solve_delta_robot", &delta::fabrik_utils::solve_delta_robot,
+          "Solve delta robot kinematics", "num_segments"_a, "target"_a, "tolerance"_a = delta::FABRIK_TOLERANCE);
+    
     m.def("calculate_motors", [](double x, double y, double z) {
         return delta::MotorModule::calculate_motors(x, y, z);
-    });
+    }, "Convenience function for motor calculation", "x"_a, "y"_a, "z"_a);
     
     // Collision-aware convenience functions
     m.def("solve_with_collision_avoidance", [](double x, double y, double z, const std::vector<delta::Obstacle>& obstacles) {
         delta::Vector3 target(x, y, z);
         return delta::CollisionAwareSolver::solve_with_collision_avoidance(target, obstacles);
-    }, "Convenience function for collision-aware solving with target coordinates");
+    }, "Convenience function for collision-aware solving with target coordinates",
+       "x"_a, "y"_a, "z"_a, "obstacles"_a);
     
-    // NEW: Segment calculator convenience function
+    // Segment calculator convenience function
     m.def("calculate_segment_end_effectors", [](const delta::FabrikChain& chain) {
         return delta::SegmentCalculator::calculate_segment_end_effectors(chain);
-    }, "Convenience function for calculating segment end-effectors");
+    }, "Convenience function for calculating segment end-effectors", "chain"_a);
     
     // =============================================================================
     // CONSTANTS

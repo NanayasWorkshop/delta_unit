@@ -1,4 +1,5 @@
 #include "orientation_module.hpp"
+#include <chrono>
 #include <cmath>
 
 namespace delta {
@@ -8,12 +9,63 @@ OrientationResult OrientationModule::calculate(double x, double y, double z) {
 }
 
 OrientationResult OrientationModule::calculate(const Vector3& input_vector) {
-    // Get kinematics result first
-    KinematicsResult kinematics = KinematicsModule::calculate(input_vector);
-    return calculate_from_kinematics(kinematics);
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // NEW: Validate input (Step 1.2)
+    if (!is_input_valid(input_vector)) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        return OrientationResult::failed(input_vector, duration.count() / 1000.0);
+    }
+    
+    // Perform calculation
+    OrientationResult result = calculate_internal(input_vector);
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    result.computation_time_ms = duration.count() / 1000.0;
+    
+    return result;
 }
 
 OrientationResult OrientationModule::calculate_from_kinematics(const KinematicsResult& kinematics_result) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // Check if kinematics calculation was successful
+    if (!kinematics_result.calculation_successful) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        return OrientationResult::failed(kinematics_result.original_input, duration.count() / 1000.0);
+    }
+    
+    // Perform calculation using existing kinematics result
+    OrientationResult result = calculate_from_kinematics_internal(kinematics_result);
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    result.computation_time_ms = duration.count() / 1000.0;
+    
+    return result;
+}
+
+bool OrientationModule::is_input_valid(const Vector3& input_vector) {
+    // Use same validation as KinematicsModule
+    return KinematicsModule::is_input_valid(input_vector);
+}
+
+OrientationResult OrientationModule::calculate_internal(const Vector3& input_vector) {
+    // Get kinematics result first using improved KinematicsModule (Step 1.2)
+    KinematicsResult kinematics = KinematicsModule::calculate(input_vector);
+    
+    // Check if kinematics calculation was successful
+    if (!kinematics.calculation_successful) {
+        return OrientationResult::failed(input_vector, kinematics.computation_time_ms);
+    }
+    
+    return calculate_from_kinematics_internal(kinematics);
+}
+
+OrientationResult OrientationModule::calculate_from_kinematics_internal(const KinematicsResult& kinematics_result) {
     // Get required points from kinematics result
     Vector3 fermat_point = kinematics_result.fermat_data.fermat_point;
     Vector3 end_effector = kinematics_result.end_effector_position;

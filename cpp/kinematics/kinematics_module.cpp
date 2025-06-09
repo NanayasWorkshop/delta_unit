@@ -1,25 +1,75 @@
 #include "kinematics_module.hpp"
+#include <chrono>
 #include <cmath>
 
 namespace delta {
+
+// Static configuration
+bool KinematicsModule::use_half_angle_transform_ = false;
 
 KinematicsResult KinematicsModule::calculate(double x, double y, double z) {
     return calculate(Vector3(x, y, z));
 }
 
 KinematicsResult KinematicsModule::calculate(const Vector3& input_vector) {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    
+    // NEW: Validate input (Step 1.2)
+    if (!is_input_valid(input_vector)) {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        return KinematicsResult::failed(input_vector, duration.count() / 1000.0);
+    }
+    
+    // Perform calculation
+    KinematicsResult result = calculate_internal(input_vector);
+    
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    result.computation_time_ms = duration.count() / 1000.0;
+    
+    return result;
+}
+
+bool KinematicsModule::is_input_valid(const Vector3& input_vector) {
+    // Check for zero vector
+    if (input_vector.norm() < EPSILON_MATH) {
+        return false;
+    }
+    
+    // Check for reasonable magnitude
+    double norm = input_vector.norm();
+    if (norm > 10000.0 || norm < 0.001) {
+        return false;
+    }
+    
+    return true;
+}
+
+KinematicsResult KinematicsModule::calculate_internal(const Vector3& input_vector) {
     // Step 1: Calculate angle between input vector and +Z axis (for reference only)
     double angle_from_z = calculate_angle_from_z_axis(input_vector);
     
     // Step 2: Use input vector directly (NO half-angle transformation)
     Vector3 direction_vector = input_vector.normalized();
     
-    // Step 3: Call Fermat module with input vector
-    FermatResult fermat_result = FermatModule::calculate(direction_vector);
+    // Step 3: Call improved Level 0 FermatSolver with timing (Step 1.1)
+    FermatResult fermat_result = FermatSolver::calculate(direction_vector);
     
-    // Step 4: Call Joint State module with fermat results
-    JointStateResult joint_state_result = JointStateModule::calculate_from_fermat(
+    // Check if fermat calculation was successful
+    if (!fermat_result.calculation_successful) {
+        return KinematicsResult::failed(input_vector, fermat_result.computation_time_ms);
+    }
+    
+    // Step 4: Call improved Level 0 JointStateSolver with timing (Step 1.1)
+    JointStateResult joint_state_result = JointStateSolver::calculate_from_fermat(
         direction_vector, fermat_result);
+    
+    // Check if joint state calculation was successful
+    if (!joint_state_result.calculation_successful) {
+        return KinematicsResult::failed(input_vector, 
+                                       fermat_result.computation_time_ms + joint_state_result.computation_time_ms);
+    }
     
     // Step 5: Calculate end-effector position using prismatic joint length and input vector
     Vector3 end_effector = calculate_end_effector_position(
