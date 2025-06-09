@@ -103,11 +103,16 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readwrite("verbose_logging", &delta::CollisionAwareConfig::verbose_logging);
     
     // =============================================================================
-    // RESULT TYPES (Simple, no helpers)
+    // RESULT TYPES (Updated with timing and validation)
     // =============================================================================
     
     pybind11::class_<delta::FermatResult>(m, "FermatResult")
-        .def_readonly("fermat_point", &delta::FermatResult::fermat_point);
+        .def_readonly("z_A", &delta::FermatResult::z_A)
+        .def_readonly("z_B", &delta::FermatResult::z_B)
+        .def_readonly("z_C", &delta::FermatResult::z_C)
+        .def_readonly("fermat_point", &delta::FermatResult::fermat_point)
+        .def_readonly("computation_time_ms", &delta::FermatResult::computation_time_ms)
+        .def_readonly("calculation_successful", &delta::FermatResult::calculation_successful);
     
     pybind11::class_<delta::KinematicsResult>(m, "KinematicsResult")
         .def_readonly("end_effector_position", &delta::KinematicsResult::end_effector_position)
@@ -116,7 +121,9 @@ PYBIND11_MODULE(delta_robot_complete, m) {
     pybind11::class_<delta::JointStateResult>(m, "JointStateResult")
         .def_readonly("prismatic_joint", &delta::JointStateResult::prismatic_joint)
         .def_readonly("roll_joint", &delta::JointStateResult::roll_joint)
-        .def_readonly("pitch_joint", &delta::JointStateResult::pitch_joint);
+        .def_readonly("pitch_joint", &delta::JointStateResult::pitch_joint)
+        .def_readonly("computation_time_ms", &delta::JointStateResult::computation_time_ms)
+        .def_readonly("calculation_successful", &delta::JointStateResult::calculation_successful);
     
     pybind11::class_<delta::OrientationResult>(m, "OrientationResult")
         .def_readonly("transformation_matrix", &delta::OrientationResult::transformation_matrix)
@@ -151,17 +158,25 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("transformed_segment_positions", &delta::LevelData::transformed_segment_positions);
     
     // =============================================================================
-    // KINEMATICS MODULES
+    // KINEMATICS MODULES (Updated with new solver names)
     // =============================================================================
     
-    pybind11::class_<delta::FermatModule>(m, "FermatModule")
+    // Main classes with all functionality
+    pybind11::class_<delta::FermatSolver>(m, "FermatSolver")
         .def_static("calculate", 
-                   pybind11::overload_cast<double, double, double>(&delta::FermatModule::calculate))
+                   pybind11::overload_cast<double, double, double>(&delta::FermatSolver::calculate))
         .def_static("calculate", 
-                   pybind11::overload_cast<const delta::Vector3&>(&delta::FermatModule::calculate));
+                   pybind11::overload_cast<const delta::Vector3&>(&delta::FermatSolver::calculate))
+        .def_static("is_direction_valid", &delta::FermatSolver::is_direction_valid);
     
-    pybind11::class_<delta::JointStateModule>(m, "JointStateModule")
-        .def_static("calculate_from_fermat", &delta::JointStateModule::calculate_from_fermat);
+    pybind11::class_<delta::JointStateSolver>(m, "JointStateSolver")
+        .def_static("calculate", &delta::JointStateSolver::calculate)
+        .def_static("calculate_from_fermat", &delta::JointStateSolver::calculate_from_fermat)
+        .def_static("is_input_valid", &delta::JointStateSolver::is_input_valid);
+    
+    // Backward compatibility aliases - same functionality, different names
+    m.attr("FermatModule") = m.attr("FermatSolver");
+    m.attr("JointStateModule") = m.attr("JointStateSolver");
     
     pybind11::class_<delta::KinematicsModule>(m, "KinematicsModule")
         .def_static("calculate", 

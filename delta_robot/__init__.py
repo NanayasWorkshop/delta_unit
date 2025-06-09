@@ -9,12 +9,20 @@ try:
     
     # Create convenient aliases that maintain backward compatibility
     class fermat:
-        FermatModule = delta_complete.FermatModule
+        # New improved classes
+        FermatSolver = delta_complete.FermatSolver
         FermatResult = delta_complete.FermatResult
+        
+        # Backward compatibility aliases
+        FermatModule = delta_complete.FermatModule
     
     class joint_state:
-        JointStateModule = delta_complete.JointStateModule
+        # New improved classes
+        JointStateSolver = delta_complete.JointStateSolver
         JointStateResult = delta_complete.JointStateResult
+        
+        # Backward compatibility aliases
+        JointStateModule = delta_complete.JointStateModule
     
     class kinematics:
         KinematicsModule = delta_complete.KinematicsModule
@@ -128,6 +136,14 @@ def verify_installation():
         result = motor.MotorModule.calculate_motors(100, 50, 300)
         print("✓ Basic motor module working!")
         
+        # Test NEW improved Level 0 modules
+        direction = np.array([1, 0, 1])
+        fermat_result = fermat.FermatSolver.calculate(direction)
+        print(f"✓ FermatSolver working! (time: {fermat_result.computation_time_ms:.3f}ms)")
+        
+        joint_result = joint_state.JointStateSolver.calculate_from_fermat(direction, fermat_result)
+        print(f"✓ JointStateSolver working! (time: {joint_result.computation_time_ms:.3f}ms)")
+        
         # Test collision detection components
         obstacles = create_test_obstacles()
         print(f"✓ Created {len(obstacles)} test obstacles!")
@@ -157,7 +173,12 @@ def verify_installation():
         segment_result = motor.SegmentCalculator.calculate_segment_end_effectors(fabrik_result.final_chain)
         print(f"✓ Segment calculator working! (calculated {len(segment_result.segment_end_effectors)} segments in {segment_result.calculation_time_ms:.2f}ms)")
         
-        print("✓ Delta robot module with COMPLETE collision detection pipeline + optimized segment calculator imported successfully!")
+        # Test backward compatibility
+        fermat_result_old = fermat.FermatModule.calculate(direction)
+        joint_result_old = joint_state.JointStateModule.calculate_from_fermat(direction, fermat_result_old)
+        print("✓ Backward compatibility working!")
+        
+        print("✓ Delta robot module with COMPLETE collision detection pipeline + optimized segment calculator + improved Level 0 modules imported successfully!")
         return True
         
     except Exception as e:
