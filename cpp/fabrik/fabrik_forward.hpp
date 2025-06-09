@@ -1,4 +1,5 @@
-// fabrik_forward.hpp - Forward iteration module
+// fabrik_forward.hpp - Forward iteration using KinematicsModule
+// STEP 2.1: Clean interface, uses improved Level 1 modules internally
 
 #ifndef DELTA_FABRIK_FORWARD_HPP
 #define DELTA_FABRIK_FORWARD_HPP
@@ -6,7 +7,7 @@
 #include "../core/math_utils.hpp"
 #include "../core/constants.hpp"
 #include "fabrik_initialization.hpp"
-#include "kinematics_module.hpp"
+#include "../kinematics/kinematics_module.hpp"  // STEP 2.1: Use improved Level 1 module
 
 namespace delta {
 
@@ -36,7 +37,7 @@ struct SegmentDirectionPair {
         : reference_direction(ref), target_direction(target), segment_index(idx) {}
 };
 
-// Calculated segment properties
+// Calculated segment properties using KinematicsModule
 struct SegmentProperties {
     double prismatic_length;        // Calculated prismatic length
     double h_to_g_distance;         // H→G distance for this segment
@@ -48,6 +49,7 @@ struct SegmentProperties {
         , fabrik_segment_length(fabrik_len), transformed_direction(dir) {}
 };
 
+// CLEAN FabrikForward - Uses KinematicsModule for all calculations
 class FabrikForward {
 public:
     // Main interface: perform forward iteration from base to end-effector
@@ -59,16 +61,16 @@ public:
     static FabrikChain single_forward_iteration(const FabrikChain& chain_state_before_pass,
                                                const std::vector<double>& target_segment_lengths);
     
-    // Calculate new segment lengths from backward iteration result
+    // STEP 2.1: Calculate new segment lengths using KinematicsModule
     static std::vector<double> calculate_new_segment_lengths(const FabrikChain& backward_result);
     
     // Utility: Get base position from chain (should be 0,0,0 after forward iteration)
     static Vector3 get_base_position(const FabrikChain& chain);
     
     // Validation: Check if base is at origin
-    static bool is_base_at_origin(const FabrikChain& chain, double tolerance = 0.01);
+    static bool is_base_at_origin(const FabrikChain& chain, double tolerance = FABRIK_TOLERANCE);
     
-    // UPDATED! Expose these methods for use by FabrikSolver::extract_segment_end_effectors
+    // STEP 2.1: Expose these methods for SegmentCalculator (clean separation of concerns)
     static std::vector<SegmentDirectionPair> extract_direction_pairs(const FabrikChain& chain);
     static std::vector<SegmentProperties> calculate_segment_properties(
         const std::vector<SegmentDirectionPair>& direction_pairs);
@@ -78,7 +80,7 @@ private:
     static Vector3 transform_to_z_reference(const Vector3& reference_direction, 
                                            const Vector3& target_direction);
     
-    // Calculate prismatic length using existing modules
+    // STEP 2.1: Calculate prismatic length using KinematicsModule (not mixed logic)
     static double calculate_prismatic_from_direction(const Vector3& transformed_direction);
     
     // Convert segment properties to FABRIK segment lengths
@@ -90,9 +92,6 @@ private:
     static bool has_converged_forward(const Vector3& current_base,
                                     const Vector3& target_base,
                                     double tolerance);
-    
-    // Cross product helper (since Vector3 doesn't have cross method)
-    static Vector3 cross_product(const Vector3& a, const Vector3& b);
     
     // Rodrigues rotation for coordinate transformation
     static Vector3 rodrigues_rotation(const Vector3& v, const Vector3& axis, double angle);

@@ -1,5 +1,5 @@
-// fabrik_solver.hpp - Main FABRIK solver that orchestrates backward/forward iterations
-// CLEANED VERSION - Segment extraction moved to SegmentCalculator for performance
+// fabrik_solver.hpp - Main FABRIK solver with CLEAN interfaces
+// STEP 2.1: Removed segment extraction, clean IK solver only
 
 #ifndef DELTA_FABRIK_SOLVER_HPP
 #define DELTA_FABRIK_SOLVER_HPP
@@ -10,9 +10,9 @@
 
 namespace delta {
 
-// Overall FABRIK solution result (CLEANED - no segment_end_effectors)
+// Clean FABRIK solution result (NO segment extraction)
 struct FabrikSolutionResult {
-    FabrikChain final_chain;                    // Final solved chain
+    FabrikChain final_chain;                    // Final solved chain with joint positions
     Vector3 target_position;                    // Target that was solved for
     Vector3 achieved_position;                  // Actual end-effector position achieved
     bool converged;                             // Whether algorithm converged
@@ -33,7 +33,7 @@ struct FabrikSolutionResult {
 // FABRIK solver configuration
 struct FabrikSolverConfig {
     double tolerance;                           // Convergence tolerance
-    int max_iterations;                         // Maximum total iterations
+    int max_iterations;                         // Maximum iterations per pass
     int max_backward_forward_cycles;            // Max backward-forward cycles
     bool enable_constraints;                    // Enable/disable joint constraints
     bool track_convergence_history;             // Store position history
@@ -49,9 +49,10 @@ struct FabrikSolverConfig {
         , verbose_logging(false) {}
 };
 
+// CLEAN FABRIK Solver - Pure IK only, no segment extraction
 class FabrikSolver {
 public:
-    // Main solving interface
+    // Main solving interface - CLEAN: only returns joint positions and convergence info
     static FabrikSolutionResult solve_to_target(const FabrikChain& initial_chain,
                                                const Vector3& target_position,
                                                const FabrikSolverConfig& config = FabrikSolverConfig());
@@ -68,7 +69,7 @@ public:
                                           const FabrikSolverConfig& config);
     
     // Validation methods
-    static bool is_solution_valid(const FabrikChain& chain, double tolerance = 0.01);
+    static bool is_solution_valid(const FabrikChain& chain, double tolerance = FABRIK_TOLERANCE);
     static double calculate_chain_error(const FabrikChain& chain);
     static Vector3 get_end_effector_position(const FabrikChain& chain);
     
@@ -76,7 +77,7 @@ public:
     static FabrikSolverConfig create_fast_config();     // Fast solving (loose tolerance)
     static FabrikSolverConfig create_precise_config();  // Precise solving (tight tolerance)
     static FabrikSolverConfig create_debug_config();    // Debug mode (verbose logging)
-    
+
 private:
     // Core algorithm implementation
     static FabrikSolutionResult run_fabrik_algorithm(const FabrikChain& initial_chain,

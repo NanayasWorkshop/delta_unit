@@ -1,8 +1,8 @@
-// fabrik_forward.hpp - Forward iteration module
+// fabrik_forward.cpp - Forward iteration using KinematicsModule
+// STEP 2.1: Clean implementation using improved Level 1 modules
 
 #include "fabrik_forward.hpp"
 #include "../core/constraint_utils.hpp"
-#include "kinematics_module.hpp"
 #include <cmath>
 #include <algorithm>
 
@@ -12,7 +12,7 @@ FabrikForwardResult FabrikForward::iterate_from_base(const FabrikChain& backward
                                                     double tolerance,
                                                     int max_iterations) {
     
-    // Step 1: Calculate new segment lengths from backward result
+    // Step 1: Calculate new segment lengths from backward result using KinematicsModule
     std::vector<double> new_segment_lengths = calculate_new_segment_lengths(backward_result_chain);
     
     FabrikChain current_chain = backward_result_chain;
@@ -107,7 +107,7 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
                 Vector3 cone_axis_normalized = cone_axis_vec.normalized();
                 double cone_half_angle_rad = SPHERICAL_JOINT_CONE_ANGLE_RAD / 2.0;
 
-                // ✅ USE SHARED FUNCTION: Project the DIRECTION onto cone constraints
+                // STEP 2.1: USE SHARED FUNCTION: Project the DIRECTION onto cone constraints
                 final_direction = project_direction_onto_cone(
                     desired_direction, 
                     cone_axis_normalized, 
@@ -144,13 +144,9 @@ FabrikChain FabrikForward::single_forward_iteration(const FabrikChain& chain_sta
 
 std::vector<double> FabrikForward::calculate_new_segment_lengths(const FabrikChain& backward_result) {
     
-    // Step 1: Extract direction pairs
+    // STEP 2.1: Use clean functions to extract direction pairs and calculate properties
     std::vector<SegmentDirectionPair> direction_pairs = extract_direction_pairs(backward_result);
-    
-    // Step 2: Calculate segment properties
     std::vector<SegmentProperties> segment_properties = calculate_segment_properties(direction_pairs);
-    
-    // Step 3: Convert to FABRIK segment lengths
     std::vector<double> fabrik_lengths = convert_to_fabrik_lengths(segment_properties, backward_result.num_robot_segments);
     
     return fabrik_lengths;
@@ -166,7 +162,7 @@ bool FabrikForward::is_base_at_origin(const FabrikChain& chain, double tolerance
     return base_pos.norm() <= tolerance;
 }
 
-// UPDATED! Now public methods for use by FabrikSolver
+// STEP 2.1: Expose these methods for clean separation of concerns
 
 std::vector<SegmentDirectionPair> FabrikForward::extract_direction_pairs(const FabrikChain& chain) {
     std::vector<SegmentDirectionPair> pairs;
@@ -207,7 +203,7 @@ std::vector<SegmentProperties> FabrikForward::calculate_segment_properties(
         // Transform target direction to Z+ reference coordinate system
         Vector3 transformed_dir = transform_to_z_reference(pair.reference_direction, pair.target_direction);
         
-        // Calculate prismatic length using existing modules with FABRIK-specific half-angle
+        // STEP 2.1: Calculate prismatic length using improved KinematicsModule
         double prismatic_length = calculate_prismatic_from_direction(transformed_dir);
         
         // Calculate H→G distance
@@ -261,42 +257,11 @@ Vector3 FabrikForward::transform_to_z_reference(const Vector3& reference_directi
 }
 
 double FabrikForward::calculate_prismatic_from_direction(const Vector3& transformed_direction) {
-    // FABRIK-SPECIFIC: Apply half-angle transformation before calling kinematics
-    // This is where the half-angle logic belongs - in FABRIK, not in general kinematics
+    // STEP 2.1: Use improved KinematicsModule instead of mixed logic
+    // KinematicsModule expects input vector directly (no half-angle needed for FABRIK)
     
-    // Calculate angle from Z axis
-    Vector3 z_axis(0, 0, 1);
-    Vector3 normalized_input = transformed_direction.normalized();
-    double dot_product = normalized_input.dot(z_axis);
-    double angle_from_z = std::acos(std::max(-1.0, std::min(1.0, dot_product)));
-    
-    // Create half-angle vector (FABRIK algorithm requirement) - inline implementation
-    Vector3 half_angle_vector;
-    
-    if (angle_from_z < 1e-10) {
-        // Input is already along Z axis, return Z axis
-        half_angle_vector = z_axis;
-    } else {
-        // Calculate half angle
-        double half_angle = angle_from_z / 2.0;
-        
-        // Find axis of rotation (cross product of z_axis and input)
-        Vector3 rotation_axis = z_axis.cross(normalized_input);
-        
-        // If vectors are opposite, choose arbitrary perpendicular axis
-        if (rotation_axis.norm() < 1e-10) {
-            rotation_axis = Vector3(1, 0, 0);
-        } else {
-            rotation_axis = rotation_axis.normalized();
-        }
-        
-        // Rotate Z axis by half_angle around rotation_axis using Rodrigues' rotation
-        half_angle_vector = rodrigues_rotation(z_axis, rotation_axis, half_angle);
-        half_angle_vector = half_angle_vector.normalized();
-    }
-    
-    // Use KinematicsModule with half-angle vector (kinematics will NOT apply additional half-angle)
-    KinematicsResult kinematics_result = KinematicsModule::calculate(half_angle_vector);
+    // Use KinematicsModule with the transformed direction vector
+    KinematicsResult kinematics_result = KinematicsModule::calculate(transformed_direction);
     
     // Extract prismatic length from kinematics result
     return kinematics_result.prismatic_joint_length;

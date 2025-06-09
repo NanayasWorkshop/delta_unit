@@ -1,17 +1,17 @@
-// consolidated_bindings.cpp - ALL modules in one file with COMPLETE COLLISION PIPELINE + SEGMENT CALCULATOR + STEP 1.2 IMPROVEMENTS
+// consolidated_bindings.cpp - Updated for Step 2.1: Clean FABRIK interfaces
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/eigen.h>
 
-// Include all headers
+// Include all headers - STEP 2.1: Updated order and includes
 #include "fabrik_initialization.hpp"
 #include "fabrik_backward.hpp"
 #include "fabrik_forward.hpp"
 #include "fabrik_solver.hpp"
 #include "fermat_module.hpp"
 #include "joint_state.hpp"
-#include "kinematics_module.hpp"      // CORRECTED: Use existing header name
-#include "orientation_module.hpp"     // CORRECTED: Use existing header name
+#include "kinematics_module.hpp"
+#include "orientation_module.hpp"
 #include "motor_module.hpp"
 #include "segment_calculator.hpp"
 #include "u_points_extractor.hpp"
@@ -22,7 +22,7 @@
 using namespace pybind11::literals;
 
 PYBIND11_MODULE(delta_robot_complete, m) {
-    m.doc() = "Complete Delta Robot Module - Step 1.2: Level 1 Composite Modules with Timing and Validation";
+    m.doc() = "Complete Delta Robot Module - Step 2.1: Clean FABRIK Solver Interface";
     
     // =============================================================================
     // TYPES & ENUMS
@@ -41,13 +41,67 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readwrite("position", &delta::FabrikJoint::position)
         .def_readwrite("type", &delta::FabrikJoint::type);
     
+    pybind11::class_<delta::FabrikSegment>(m, "FabrikSegment")
+        .def_readwrite("start_joint_index", &delta::FabrikSegment::start_joint_index)
+        .def_readwrite("end_joint_index", &delta::FabrikSegment::end_joint_index)
+        .def_readwrite("length", &delta::FabrikSegment::length);
+    
     pybind11::class_<delta::FabrikChain>(m, "FabrikChain")
         .def_readwrite("joints", &delta::FabrikChain::joints)
         .def_readwrite("segments", &delta::FabrikChain::segments)
         .def_readwrite("num_robot_segments", &delta::FabrikChain::num_robot_segments);
     
     // =============================================================================
-    // SEGMENT CALCULATOR STRUCTURES
+    // FABRIK RESULT STRUCTURES (Updated for Step 2.1)
+    // =============================================================================
+    
+    pybind11::class_<delta::FabrikInitResult>(m, "FabrikInitResult")
+        .def_readonly("chain", &delta::FabrikInitResult::chain)
+        .def_readonly("final_end_effector", &delta::FabrikInitResult::final_end_effector)
+        .def_readonly("total_reach", &delta::FabrikInitResult::total_reach);
+    
+    // STEP 2.1: Clean FABRIK result structure (no segment extraction)
+    pybind11::class_<delta::FabrikSolutionResult>(m, "FabrikSolutionResult")
+        .def_readonly("final_chain", &delta::FabrikSolutionResult::final_chain)
+        .def_readonly("target_position", &delta::FabrikSolutionResult::target_position)
+        .def_readonly("achieved_position", &delta::FabrikSolutionResult::achieved_position)
+        .def_readonly("converged", &delta::FabrikSolutionResult::converged)
+        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error)
+        .def_readonly("total_iterations", &delta::FabrikSolutionResult::total_iterations)
+        .def_readonly("backward_iterations", &delta::FabrikSolutionResult::backward_iterations)
+        .def_readonly("forward_iterations", &delta::FabrikSolutionResult::forward_iterations)
+        .def_readonly("convergence_history", &delta::FabrikSolutionResult::convergence_history)
+        .def_readonly("solve_time_ms", &delta::FabrikSolutionResult::solve_time_ms);
+    
+    pybind11::class_<delta::FabrikSolverConfig>(m, "FabrikSolverConfig")
+        .def(pybind11::init<>())
+        .def_readwrite("tolerance", &delta::FabrikSolverConfig::tolerance)
+        .def_readwrite("max_iterations", &delta::FabrikSolverConfig::max_iterations)
+        .def_readwrite("max_backward_forward_cycles", &delta::FabrikSolverConfig::max_backward_forward_cycles)
+        .def_readwrite("enable_constraints", &delta::FabrikSolverConfig::enable_constraints)
+        .def_readwrite("track_convergence_history", &delta::FabrikSolverConfig::track_convergence_history)
+        .def_readwrite("verbose_logging", &delta::FabrikSolverConfig::verbose_logging);
+    
+    // STEP 2.1: Forward iteration structures (cleaned)
+    pybind11::class_<delta::FabrikForwardResult>(m, "FabrikForwardResult")
+        .def_readonly("updated_chain", &delta::FabrikForwardResult::updated_chain)
+        .def_readonly("base_position", &delta::FabrikForwardResult::base_position)
+        .def_readonly("final_end_effector", &delta::FabrikForwardResult::final_end_effector)
+        .def_readonly("constraints_satisfied", &delta::FabrikForwardResult::constraints_satisfied)
+        .def_readonly("iterations_used", &delta::FabrikForwardResult::iterations_used)
+        .def_readonly("iteration_history", &delta::FabrikForwardResult::iteration_history)
+        .def_readonly("recalculated_lengths", &delta::FabrikForwardResult::recalculated_lengths);
+    
+    pybind11::class_<delta::FabrikBackwardResult>(m, "FabrikBackwardResult")
+        .def_readonly("updated_chain", &delta::FabrikBackwardResult::updated_chain)
+        .def_readonly("target_position", &delta::FabrikBackwardResult::target_position)
+        .def_readonly("target_reachable", &delta::FabrikBackwardResult::target_reachable)
+        .def_readonly("distance_to_base", &delta::FabrikBackwardResult::distance_to_base)
+        .def_readonly("iterations_used", &delta::FabrikBackwardResult::iterations_used)
+        .def_readonly("iteration_history", &delta::FabrikBackwardResult::iteration_history);
+    
+    // =============================================================================
+    // SEGMENT CALCULATOR STRUCTURES (Separated from FABRIK)
     // =============================================================================
     
     pybind11::class_<delta::SegmentEndEffectorData>(m, "SegmentEndEffectorData")
@@ -86,7 +140,6 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("total_reach", &delta::WaypointConversionResult::total_reach)
         .def_readonly("conversion_successful", &delta::WaypointConversionResult::conversion_successful);
     
-    // Collision-aware solver structures
     pybind11::class_<delta::CollisionAwareSolutionResult>(m, "CollisionAwareSolutionResult")
         .def_readonly("fabrik_result", &delta::CollisionAwareSolutionResult::fabrik_result)
         .def_readonly("collision_free", &delta::CollisionAwareSolutionResult::collision_free)
@@ -103,7 +156,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readwrite("verbose_logging", &delta::CollisionAwareConfig::verbose_logging);
     
     // =============================================================================
-    // COORDINATE FRAME STRUCTURE (NEW - Step 1.2)
+    // COORDINATE FRAME STRUCTURE
     // =============================================================================
     
     pybind11::class_<delta::CoordinateFrame>(m, "CoordinateFrame")
@@ -113,7 +166,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_readonly("w_axis", &delta::CoordinateFrame::w_axis);
     
     // =============================================================================
-    // RESULT TYPES (Updated with Step 1.2 improvements)
+    // RESULT TYPES (Level 0 and Level 1 from Steps 1.1 + 1.2)
     // =============================================================================
     
     // Level 0 Results (Step 1.1 - Enhanced with timing and validation)
@@ -171,13 +224,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "Create failed result for error handling",
                    "input"_a = delta::Vector3(0,0,0), "time_ms"_a = 0.0);
     
-    // Other result types
-    pybind11::class_<delta::FabrikSolutionResult>(m, "FabrikSolutionResult")
-        .def_readonly("final_chain", &delta::FabrikSolutionResult::final_chain)
-        .def_readonly("converged", &delta::FabrikSolutionResult::converged)
-        .def_readonly("final_error", &delta::FabrikSolutionResult::final_error)
-        .def_readonly("solve_time_ms", &delta::FabrikSolutionResult::solve_time_ms);
-    
+    // Motor and LevelData results
     pybind11::class_<delta::MotorResult>(m, "MotorResult")
         .def_readonly("target_position", &delta::MotorResult::target_position)
         .def_readonly("fabrik_converged", &delta::MotorResult::fabrik_converged)
@@ -230,7 +277,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "Validate input parameters", "direction_vector"_a, "fermat_point"_a);
     
     // =============================================================================
-    // LEVEL 1 COMPOSITE MODULES (UPDATED - Step 1.2)
+    // LEVEL 1 COMPOSITE MODULES (Step 1.2)
     // =============================================================================
     
     pybind11::class_<delta::KinematicsModule>(m, "KinematicsModule")
@@ -265,19 +312,19 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "Validate input direction vector", "input_vector"_a);
     
     // =============================================================================
-    // BACKWARD COMPATIBILITY ALIASES (Step 1.2)
+    // BACKWARD COMPATIBILITY ALIASES
     // =============================================================================
     
     // Step 1.1 backward compatibility
     m.attr("FermatModule") = m.attr("FermatSolver");
     m.attr("JointStateModule") = m.attr("JointStateSolver");
     
-    // Step 1.2 backward compatibility - aliases to same classes
+    // Step 1.2 backward compatibility
     m.attr("KinematicsSolver") = m.attr("KinematicsModule");
     m.attr("OrientationSolver") = m.attr("OrientationModule");
     
     // =============================================================================
-    // FABRIK MODULES
+    // FABRIK MODULES (STEP 2.1: Clean interfaces)
     // =============================================================================
     
     pybind11::class_<delta::FabrikInitialization>(m, "FabrikInitialization")
@@ -286,15 +333,54 @@ PYBIND11_MODULE(delta_robot_complete, m) {
         .def_static("initialize_from_joint_positions", &delta::FabrikInitialization::initialize_from_joint_positions,
                    "Initialize FABRIK chain from joint positions", "num_robot_segments"_a, "joint_positions"_a);
     
+    // STEP 2.1: Clean FABRIK Solver - Pure IK only
     pybind11::class_<delta::FabrikSolver>(m, "FabrikSolver")
+        .def_static("solve_to_target", &delta::FabrikSolver::solve_to_target,
+                   "Solve FABRIK inverse kinematics with configuration",
+                   "initial_chain"_a, "target_position"_a, "config"_a = delta::FabrikSolverConfig())
         .def_static("solve", &delta::FabrikSolver::solve,
-                   "Solve FABRIK inverse kinematics",
+                   "Solve FABRIK inverse kinematics with simple parameters",
                    "initial_chain"_a, "target_position"_a, 
                    "tolerance"_a = delta::FABRIK_TOLERANCE, 
-                   "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS);
+                   "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS)
+        .def_static("single_fabrik_cycle", &delta::FabrikSolver::single_fabrik_cycle,
+                   "Perform single backward-forward cycle",
+                   "chain"_a, "target_position"_a, "config"_a)
+        .def_static("is_solution_valid", &delta::FabrikSolver::is_solution_valid,
+                   "Validate FABRIK solution", "chain"_a, "tolerance"_a = delta::FABRIK_TOLERANCE)
+        .def_static("calculate_chain_error", &delta::FabrikSolver::calculate_chain_error,
+                   "Calculate total chain error", "chain"_a)
+        .def_static("get_end_effector_position", &delta::FabrikSolver::get_end_effector_position,
+                   "Get end-effector position from chain", "chain"_a)
+        .def_static("create_fast_config", &delta::FabrikSolver::create_fast_config,
+                   "Create fast solving configuration")
+        .def_static("create_precise_config", &delta::FabrikSolver::create_precise_config,
+                   "Create precise solving configuration")
+        .def_static("create_debug_config", &delta::FabrikSolver::create_debug_config,
+                   "Create debug solving configuration");
+    
+    pybind11::class_<delta::FabrikForward>(m, "FabrikForward")
+        .def_static("iterate_from_base", &delta::FabrikForward::iterate_from_base,
+                   "Perform forward iteration from base to end-effector",
+                   "backward_result_chain"_a, "tolerance"_a = delta::FABRIK_TOLERANCE, 
+                   "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS)
+        .def_static("calculate_new_segment_lengths", &delta::FabrikForward::calculate_new_segment_lengths,
+                   "Calculate new segment lengths using KinematicsModule", "backward_result"_a)
+        .def_static("get_base_position", &delta::FabrikForward::get_base_position,
+                   "Get base position from chain", "chain"_a)
+        .def_static("is_base_at_origin", &delta::FabrikForward::is_base_at_origin,
+                   "Check if base is at origin", "chain"_a, "tolerance"_a = delta::FABRIK_TOLERANCE);
+    
+    pybind11::class_<delta::FabrikBackward>(m, "FabrikBackward")
+        .def_static("iterate_to_target", &delta::FabrikBackward::iterate_to_target,
+                   "Perform backward iteration from target to base",
+                   "initial_chain"_a, "target_position"_a, "tolerance"_a = delta::FABRIK_TOLERANCE, 
+                   "max_iterations"_a = delta::FABRIK_MAX_ITERATIONS)
+        .def_static("is_target_reachable", &delta::FabrikBackward::is_target_reachable,
+                   "Check if target is reachable", "chain"_a, "target_position"_a);
     
     // =============================================================================
-    // SEGMENT CALCULATOR (Separated for performance)
+    // SEGMENT CALCULATOR (STEP 2.1: Separated from FABRIK)
     // =============================================================================
     
     pybind11::class_<delta::SegmentCalculator>(m, "SegmentCalculator")
@@ -314,7 +400,7 @@ PYBIND11_MODULE(delta_robot_complete, m) {
                    "num_robot_segments"_a);
     
     // =============================================================================
-    // COLLISION MODULES (Complete Pipeline)
+    // COLLISION MODULES
     // =============================================================================
     
     pybind11::class_<delta::UPointsExtractor>(m, "UPointsExtractor")

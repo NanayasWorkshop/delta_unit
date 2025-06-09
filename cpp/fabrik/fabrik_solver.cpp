@@ -1,3 +1,6 @@
+// fabrik_solver.cpp - Clean FABRIK solver implementation
+// STEP 2.1: Removed segment extraction, pure IK solver only
+
 #include "fabrik_solver.hpp"
 #include <chrono>
 #include <iostream>
@@ -28,7 +31,6 @@ FabrikSolutionResult FabrikSolver::solve(const FabrikChain& initial_chain,
     FabrikSolverConfig config;
     config.tolerance = tolerance;
     config.max_iterations = max_iterations;
-    // Use max_iterations for both individual iterations AND main cycles for consistency
     config.max_backward_forward_cycles = max_iterations;
     
     return solve_to_target(initial_chain, target_position, config);
@@ -42,7 +44,7 @@ FabrikChain FabrikSolver::single_fabrik_cycle(const FabrikChain& chain,
     FabrikBackwardResult backward_result = FabrikBackward::iterate_to_target(
         chain, target_position, config.tolerance, config.max_iterations);
     
-    // Step 2: Forward iteration  
+    // Step 2: Forward iteration using cleaned FabrikForward
     FabrikForwardResult forward_result = FabrikForward::iterate_from_base(
         backward_result.updated_chain, config.tolerance, config.max_iterations);
     
@@ -148,10 +150,10 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
     int total_forward_iterations = 0;
     
     if (config.verbose_logging) {
-        std::cout << "Starting FABRIK algorithm with constants..." << std::endl;
+        std::cout << "Starting FABRIK algorithm..." << std::endl;
         std::cout << "Target: (" << target_position.x() << ", " << target_position.y() << ", " << target_position.z() << ")" << std::endl;
-        std::cout << "Tolerance: " << config.tolerance << " (FABRIK_TOLERANCE = " << FABRIK_TOLERANCE << ")" << std::endl;
-        std::cout << "Max iterations per pass: " << config.max_iterations << " (FABRIK_MAX_ITERATIONS = " << FABRIK_MAX_ITERATIONS << ")" << std::endl;
+        std::cout << "Tolerance: " << config.tolerance << std::endl;
+        std::cout << "Max iterations per pass: " << config.max_iterations << std::endl;
         std::cout << "Max backward-forward cycles: " << config.max_backward_forward_cycles << std::endl;
     }
     
@@ -165,7 +167,7 @@ FabrikSolutionResult FabrikSolver::run_fabrik_algorithm(const FabrikChain& initi
         total_backward_iterations += backward_result.iterations_used;
         current_chain = backward_result.updated_chain;
         
-        // Step 2: Forward iteration (fix base at origin)
+        // Step 2: Forward iteration (fix base at origin) using cleaned FabrikForward
         FabrikForwardResult forward_result = FabrikForward::iterate_from_base(
             current_chain, config.tolerance, config.max_iterations);
         
@@ -279,7 +281,7 @@ void FabrikSolver::update_segment_lengths(FabrikChain& chain, const std::vector<
         
         // Optional: Log significant changes for debugging
         double change = std::abs(new_lengths[i] - old_length);
-        if (change > FABRIK_TOLERANCE) {  // Use FABRIK_TOLERANCE for change detection
+        if (change > FABRIK_TOLERANCE) {
             // Uncomment for detailed debugging:
             // std::cout << "    Segment " << i << ": " << old_length << " → " << new_lengths[i] 
             //           << " (change: " << change << ")" << std::endl;
@@ -305,7 +307,7 @@ bool FabrikSolver::has_stalled(const std::vector<Vector3>& history, int min_hist
         Vector3 prev_pos = history[history.size() - 1 - i];
         double distance = (last_pos - prev_pos).norm();
         
-        if (distance > FABRIK_TOLERANCE / 100) {  // Use fraction of FABRIK_TOLERANCE for stall detection
+        if (distance > FABRIK_TOLERANCE / 100) {
             return false;
         }
     }
@@ -343,7 +345,7 @@ FabrikSolutionResult solve_delta_robot(int num_segments,
     // Initialize chain
     FabrikInitResult init_result = FabrikInitialization::initialize_straight_up(num_segments);
     
-    // Solve using the specified tolerance (defaults to FABRIK_TOLERANCE if not specified)
+    // Solve using the specified tolerance
     return FabrikSolver::solve(init_result.chain, target, tolerance, FABRIK_MAX_ITERATIONS);
 }
 
